@@ -102,6 +102,10 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
                                  avpriv_mjpeg_bits_ac_chrominance,
                                  avpriv_mjpeg_val_ac_chrominance);
 
+    /* buffers start out empty */
+    m->buffer = NULL;
+    m->buffer_last = NULL;
+
     init_uni_ac_vlc(m->huff_size_ac_luminance,   uni_ac_vlc_len);
     init_uni_ac_vlc(m->huff_size_ac_chrominance, uni_chroma_ac_vlc_len);
     s->intra_ac_vlc_length      =
@@ -120,60 +124,51 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 
 static void encode_block(MpegEncContext *s, int16_t *block, int n)
 {
-    int mant, nbits, code, i, j;
+    int i, j;
     int component, dc, run, last_index, val;
     MJpegContext *m = s->mjpeg_ctx;
-    uint8_t *huff_size_ac;
-    uint16_t *huff_code_ac;
+    MJpegValue* buffer_block;
+
+    // TODO: Out of memory error return?
+    buffer_block = av_malloc(sizeof(MJpegValue));
+    if (!buffer_block) {
+        return;
+    }
+
+    buffer_block->next = NULL;
+
+    /* Add to end of buffer */
+    if (!m->buffer && !m->buffer_last) {
+      m->buffer = buffer_block;
+      m->buffer_last = buffer_block;
+    } else {
+      m->buffer_last->next = buffer_block;
+      m->buffer_last = buffer_block;
+    }
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);
     dc = block[0]; /* overflow is impossible */
     val = dc - s->last_dc[component];
-    if (n < 4) {
-        ff_mjpeg_encode_dc(&s->pb, val, m->huff_size_dc_luminance, m->huff_code_dc_luminance);
-        huff_size_ac = m->huff_size_ac_luminance;
-        huff_code_ac = m->huff_code_ac_luminance;
-    } else {
-        ff_mjpeg_encode_dc(&s->pb, val, m->huff_size_dc_chrominance, m->huff_code_dc_chrominance);
-        huff_size_ac = m->huff_size_ac_chrominance;
-        huff_code_ac = m->huff_code_ac_chrominance;
-    }
+
+    buffer_block->dc_coefficient = val;
+    buffer_block->n = n;
+
     s->last_dc[component] = dc;
 
     /* AC coefs */
 
     run = 0;
     last_index = s->block_last_index[n];
+
+    buffer_block->ac_coefficients = av_malloc(sizeof(int) * last_index);
+    buffer_block->ac_coefficients_size = last_index;
+
     for(i=1;i<=last_index;i++) {
         j = s->intra_scantable.permutated[i];
         val = block[j];
-        if (val == 0) {
-            run++;
-        } else {
-            while (run >= 16) {
-                put_bits(&s->pb, huff_size_ac[0xf0], huff_code_ac[0xf0]);
-                run -= 16;
-            }
-            mant = val;
-            if (val < 0) {
-                val = -val;
-                mant--;
-            }
-
-            nbits= av_log2_16bit(val) + 1;
-            code = (run << 4) | nbits;
-
-            put_bits(&s->pb, huff_size_ac[code], huff_code_ac[code]);
-
-            put_sbits(&s->pb, nbits, mant);
-            run = 0;
-        }
+        buffer_block->ac_coefficients[i-1] = val;
     }
-
-    /* output EOB only if not already 64 values */
-    if (last_index < 63 || run != 0)
-        put_bits(&s->pb, huff_size_ac[0], huff_code_ac[0]);
 }
 
 void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
@@ -209,6 +204,72 @@ void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
     }
 
     s->i_tex_bits += get_bits_diff(s);
+}
+
+// TODO(jjang): Test
+void ff_mjpeg_encode_output(MpegEncContext *s) {
+    int i, val, run, mant, nbits, code;
+    MJpegContext *m;
+    uint8_t *huff_size_ac;
+    uint16_t *huff_code_ac;
+    MJpegValue* current;
+    MJpegValue* next;
+
+    m = s->mjpeg_ctx;
+    current = m->buffer;
+
+    while (current) {
+        /* printf("B: %d %d\n", current->n, current->dc_coefficient); */
+        if (current->n < 4) {
+            ff_mjpeg_encode_dc(&s->pb, current->dc_coefficient,
+                m->huff_size_dc_luminance, m->huff_code_dc_luminance);
+            huff_size_ac = m->huff_size_ac_luminance;
+            huff_code_ac = m->huff_code_ac_luminance;
+        } else {
+            ff_mjpeg_encode_dc(&s->pb, current->dc_coefficient,
+                m->huff_size_dc_chrominance, m->huff_code_dc_chrominance);
+            huff_size_ac = m->huff_size_ac_chrominance;
+            huff_code_ac = m->huff_code_ac_chrominance;
+        }
+
+        run = 0;
+        for(i = 0; i < current->ac_coefficients_size; i++) {
+            val = current->ac_coefficients[i];
+
+            if (val == 0) {
+                run++;
+            } else {
+                while (run >= 16) {
+                    put_bits(&s->pb, huff_size_ac[0xf0], huff_code_ac[0xf0]);
+                    run -= 16;
+                }
+                mant = val;
+                if (val < 0) {
+                    val = -val;
+                    mant--;
+                }
+
+                nbits= av_log2_16bit(val) + 1;
+                code = (run << 4) | nbits;
+
+                put_bits(&s->pb, huff_size_ac[code], huff_code_ac[code]);
+
+                put_sbits(&s->pb, nbits, mant);
+                run = 0;
+            }
+        }
+
+        if (current->ac_coefficients_size < 63 || run != 0)
+            put_bits(&s->pb, huff_size_ac[0], huff_code_ac[0]);
+
+        next = current->next;
+        av_freep(&current->ac_coefficients);
+        av_freep(&current);
+        current = next;
+    }
+
+    m->buffer = NULL;
+    m->buffer_last = NULL;
 }
 
 // maximum over s->mjpeg_vsample[i]

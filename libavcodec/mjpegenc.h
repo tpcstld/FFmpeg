@@ -39,6 +39,16 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
+// TODO: Check with Ted to make sure this is good.
+typedef struct MJpegValue {
+  int dc_coefficient;
+  int* ac_coefficients;
+  int ac_coefficients_size;
+  // TODO: Make this into a boolean indicating luminance or chrominance.
+  int n;
+  struct MJpegValue* next;
+} MJpegValue;
+
 typedef struct MJpegContext {
     uint8_t huff_size_dc_luminance[12]; //FIXME use array [3] instead of lumi / chroma, for easier addressing
     uint16_t huff_code_dc_luminance[12];
@@ -49,6 +59,9 @@ typedef struct MJpegContext {
     uint16_t huff_code_ac_luminance[256];
     uint8_t huff_size_ac_chrominance[256];
     uint16_t huff_code_ac_chrominance[256];
+
+    MJpegValue* buffer;
+    MJpegValue* buffer_last;
 } MJpegContext;
 
 static inline void put_marker(PutBitContext *p, enum JpegMarker code)
@@ -60,5 +73,7 @@ static inline void put_marker(PutBitContext *p, enum JpegMarker code)
 int  ff_mjpeg_encode_init(MpegEncContext *s);
 void ff_mjpeg_encode_close(MpegEncContext *s);
 void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64]);
+
+void ff_mjpeg_encode_output(MpegEncContext *s);
 
 #endif /* AVCODEC_MJPEGENC_H */

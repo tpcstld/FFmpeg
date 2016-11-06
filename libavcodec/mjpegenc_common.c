@@ -104,6 +104,8 @@ static void jpeg_table_header(AVCodecContext *avctx, PutBitContext *p,
     ptr = put_bits_ptr(p);
     put_bits(p, 16, 0); /* patched later */
     size = 2;
+    // TODO(jjiang): This needs to change to happen after the tables are
+    // written.
     size += put_huffman_table(p, 0, 0, avpriv_mjpeg_bits_dc_luminance,
                               avpriv_mjpeg_val_dc);
     size += put_huffman_table(p, 0, 1, avpriv_mjpeg_bits_dc_chrominance,
@@ -377,9 +379,15 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     int i;
     PutBitContext *pbc = &s->pb;
     int mb_y = s->mb_y - !s->mb_x;
+    int ret;
 
-    int ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,
-                                                put_bits_count(&s->pb) / 4 + 1000);
+    if (s->avctx->codec_id == AV_CODEC_ID_MJPEG) {
+      ff_mjpeg_encode_output(s);
+    }
+
+    ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,
+                                            put_bits_count(&s->pb) / 4 + 1000);
+
     if (ret < 0) {
         av_log(s->avctx, AV_LOG_ERROR, "Buffer reallocation failed\n");
         goto fail;

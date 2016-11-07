@@ -129,7 +129,7 @@ static void encode_block(MpegEncContext *s, int16_t *block, int n)
     MJpegContext *m = s->mjpeg_ctx;
     MJpegValue* buffer_block;
 
-    // TODO: Out of memory error return?
+    // TODO(jjiang): Out of memory error return?
     buffer_block = av_malloc(sizeof(MJpegValue));
     if (!buffer_block) {
         return;

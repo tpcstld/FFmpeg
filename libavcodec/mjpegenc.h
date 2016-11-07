@@ -39,12 +39,12 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
-// TODO: Check with Ted to make sure this is good.
+// TODO(jjiang): Check with Ted to make sure this is good.
 typedef struct MJpegValue {
   int dc_coefficient;
   int* ac_coefficients;
   int ac_coefficients_size;
-  // TODO: Make this into a boolean indicating luminance or chrominance.
+  // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
   int n;
   struct MJpegValue* next;
 } MJpegValue;
@@ -59,6 +59,20 @@ typedef struct MJpegContext {
     uint16_t huff_code_ac_luminance[256];
     uint8_t huff_size_ac_chrominance[256];
     uint16_t huff_code_ac_chrominance[256];
+
+    uint8_t bits_dc_luminance[17];
+    uint8_t val_dc_luminance[12];
+    uint8_t bits_dc_chrominance[17];
+    uint8_t val_dc_chrominance[12];
+
+    uint8_t bits_ac_luminance[17];
+    uint8_t val_ac_luminance[256];
+    int val_ac_luminance_size;
+    uint8_t bits_ac_chrominance[17];
+    uint8_t val_ac_chrominance[256];
+    int val_ac_chrominance_size;
+
+    // TODO(jjiang): The size values might not be necessary.
 
     MJpegValue* buffer;
     MJpegValue* buffer_last;

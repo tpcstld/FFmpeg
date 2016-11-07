@@ -104,17 +104,15 @@ static void jpeg_table_header(AVCodecContext *avctx, PutBitContext *p,
     ptr = put_bits_ptr(p);
     put_bits(p, 16, 0); /* patched later */
     size = 2;
-    // TODO(jjiang): This needs to change to happen after the tables are
-    // written.
-    size += put_huffman_table(p, 0, 0, avpriv_mjpeg_bits_dc_luminance,
-                              avpriv_mjpeg_val_dc);
-    size += put_huffman_table(p, 0, 1, avpriv_mjpeg_bits_dc_chrominance,
-                              avpriv_mjpeg_val_dc);
+    size += put_huffman_table(p, 0, 0, s->mjpeg_ctx->bits_dc_luminance,
+                              s->mjpeg_ctx->val_dc_luminance);
+    size += put_huffman_table(p, 0, 1, s->mjpeg_ctx->bits_dc_chrominance,
+                              s->mjpeg_ctx->val_dc_chrominance);
 
-    size += put_huffman_table(p, 1, 0, avpriv_mjpeg_bits_ac_luminance,
-                              avpriv_mjpeg_val_ac_luminance);
-    size += put_huffman_table(p, 1, 1, avpriv_mjpeg_bits_ac_chrominance,
-                              avpriv_mjpeg_val_ac_chrominance);
+    size += put_huffman_table(p, 1, 0, s->mjpeg_ctx->bits_ac_luminance,
+                              s->mjpeg_ctx->val_ac_luminance);
+    size += put_huffman_table(p, 1, 1, s->mjpeg_ctx->bits_ac_chrominance,
+                              s->mjpeg_ctx->val_ac_chrominance);
     AV_WB16(ptr, size);
 }
 
@@ -381,8 +379,40 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     int mb_y = s->mb_y - !s->mb_x;
     int ret;
 
+    // TODO(jjiang): Ensure that this check is all you need.
     if (s->avctx->codec_id == AV_CODEC_ID_MJPEG) {
-      ff_mjpeg_encode_output(s);
+        // All the variables assigned by these for loops shall move into the
+        // function!
+        s->mjpeg_ctx->val_ac_luminance_size = 0;
+        s->mjpeg_ctx->val_ac_chrominance_size = 0;
+
+        for(i=0;i<17;i++) {
+            s->mjpeg_ctx->bits_dc_luminance[i] = avpriv_mjpeg_bits_dc_luminance[i];
+            s->mjpeg_ctx->bits_dc_chrominance[i] = avpriv_mjpeg_bits_dc_chrominance[i];
+
+            s->mjpeg_ctx->bits_ac_luminance[i] = avpriv_mjpeg_bits_ac_luminance[i];
+            s->mjpeg_ctx->bits_ac_chrominance[i] = avpriv_mjpeg_bits_ac_chrominance[i];
+
+            s->mjpeg_ctx->val_ac_luminance_size += s->mjpeg_ctx->bits_ac_luminance[i];
+            s->mjpeg_ctx->val_ac_chrominance_size += s->mjpeg_ctx->bits_ac_chrominance[i];
+        }
+
+        for(i=0;i<12;i++) {
+            s->mjpeg_ctx->val_dc_luminance[i] = avpriv_mjpeg_val_dc[i];
+            s->mjpeg_ctx->val_dc_chrominance[i] = avpriv_mjpeg_val_dc[i];
+        }
+
+        for (i=0;i<s->mjpeg_ctx->val_ac_luminance_size;i++) {
+            s->mjpeg_ctx->val_ac_luminance[i] = avpriv_mjpeg_val_ac_luminance[i];
+        }
+
+        for (i=0;i<s->mjpeg_ctx->val_ac_chrominance_size;i++) {
+            s->mjpeg_ctx->val_ac_chrominance[i] = avpriv_mjpeg_val_ac_chrominance[i];
+        }
+
+        ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
+                                       s->pred, s->intra_matrix, s->chroma_intra_matrix);
+        ff_mjpeg_encode_output(s);
     }
 
     ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,

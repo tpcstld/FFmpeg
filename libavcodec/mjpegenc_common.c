@@ -426,11 +426,8 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
             MJpegEncHuffmanContext *dc_ctx = current->n < 4 ? &dc_luminance_ctx : &dc_chrominance_ctx;
             MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
 
-            ff_mjpeg_encode_huffman_increment(dc_ctx,
-                    current->dc_coefficient == 0 ? 0 : av_log2_16bit(abs(current->dc_coefficient)) + 1);
-
-            for(i = 0; i < current->ac_coefficients_size; i++) {
-                ff_mjpeg_encode_huffman_increment(ac_ctx, current->ac_coefficients[i]);
+            for(i = 0; i < current->ncode; i++) {
+                ff_mjpeg_encode_huffman_increment(i == 0 ? dc_ctx : ac_ctx, current->codes[i]);
             }
         }
 

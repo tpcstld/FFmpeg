@@ -167,6 +167,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
                                  huff_bits,
                                  huff_val);
 
+    // TODO(yingted): use this
     init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
     init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
     s->intra_ac_vlc_length      =
@@ -174,8 +175,12 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     s->intra_chroma_ac_vlc_length      =
     s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
-    // TODO(yingted): move to encode_thread, as other things need to be written
     for (current = m->buffer; current;) {
+        int size_increase =  s->avctx->internal->byte_buffer_size/4
+                           + s->mb_width*MAX_MB_BYTES;
+
+        ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
+
         if (current->n < 4) {
             ff_mjpeg_encode_dc(&s->pb, current->dc_coefficient,
                 m->huff_size_dc_luminance, m->huff_code_dc_luminance);
@@ -224,6 +229,9 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
         av_freep(&current);
         current = next;
     }
+
+    s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
+    s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
 
     m->buffer = NULL;
     m->buffer_last = NULL;

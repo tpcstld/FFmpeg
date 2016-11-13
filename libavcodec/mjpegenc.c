@@ -174,6 +174,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     s->intra_chroma_ac_vlc_length      =
     s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
+    // TODO(yingted): move to encode_thread, as other things need to be written
     for (current = m->buffer; current;) {
         if (current->n < 4) {
             ff_mjpeg_encode_dc(&s->pb, current->dc_coefficient,

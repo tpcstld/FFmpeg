@@ -42,6 +42,7 @@
 typedef struct MJpegValue {
     int dc_coefficient;
     int *ac_coefficients;
+    int *ac_coefficient_codes;
     int ac_coefficients_size;
     // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
     int n;

@@ -39,6 +39,7 @@ OBJS = allcodecs.o                                                      \
        mediacodec.o                                                     \
        mpeg12framerate.o                                                \
        options.o                                                        \
+       optimalhuffman.o 												\
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \
@@ -1014,6 +1015,7 @@ TESTPROGS = avpacket                                                    \
             jpeg2000dwt                                                 \
             mathops                                                    \
             options                                                     \
+            optimalhuffman												\
             utils                                                       \
 
 TESTPROGS-$(CONFIG_CABAC)                 += cabac

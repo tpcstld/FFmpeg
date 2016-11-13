@@ -33,7 +33,34 @@
 #include "put_bits.h"
 #include "mjpegenc.h"
 #include "mjpegenc_common.h"
+#include "mjpegenc_huffman.h"
 #include "mjpeg.h"
+
+static av_cold void init_uni_ac_vlc(const uint8_t huff_size_ac[256], uint8_t *uni_ac_vlc_len)
+{
+    int i;
+
+    for (i = 0; i < 128; i++) {
+        int level = i - 64;
+        int run;
+        if (!level)
+            continue;
+        for (run = 0; run < 64; run++) {
+            int len, code, nbits;
+            int alevel = FFABS(level);
+
+            len = (run >> 4) * huff_size_ac[0xf0];
+
+            nbits= av_log2_16bit(alevel) + 1;
+            code = ((15&run) << 4) | nbits;
+
+            len += huff_size_ac[code] + nbits;
+
+            uni_ac_vlc_len[UNI_AC_ENC_INDEX(run, i)] = len;
+            // We ignore EOB as its just a constant which does not change generally
+        }
+    }
+}
 
 /* table_class: 0 = DC coef, 1 = AC coefs */
 static int put_huffman_table(PutBitContext *p, int table_class, int table_id,
@@ -379,6 +406,11 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     int mb_y = s->mb_y - !s->mb_x;
     int val_ac_luminance_size, val_ac_chrominance_size;
     int ret;
+    MJpegValue* current;
+    MJpegValue* next;
+    MJpegContext *m;
+
+    m = s->mjpeg_ctx;
 
     // TODO(jjiang): Ensure that this check is all you need.
     if (s->avctx->codec_id == AV_CODEC_ID_MJPEG) {
@@ -413,9 +445,68 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
             s->mjpeg_ctx->val_ac_chrominance[i] = avpriv_mjpeg_val_ac_chrominance[i];
         }
 
+
+        if (m->error)
+            return;
+
+        av_assert0(!s->intra_ac_vlc_length);
+
+        /* build all the huffman tables */
+        // TODO(yingted): Refactor
+        MJpegEncHuffmanContext dc_luminance_ctx;
+        MJpegEncHuffmanContext dc_chrominance_ctx;
+        MJpegEncHuffmanContext ac_luminance_ctx;
+        MJpegEncHuffmanContext ac_chrominance_ctx;
+        ff_mjpeg_encode_huffman_init(&dc_luminance_ctx);
+        ff_mjpeg_encode_huffman_init(&dc_chrominance_ctx);
+        ff_mjpeg_encode_huffman_init(&ac_luminance_ctx);
+        ff_mjpeg_encode_huffman_init(&ac_chrominance_ctx);
+        for (current = m->buffer; current; current = current->next) {
+            MJpegEncHuffmanContext *dc_ctx = current->n < 4 ? &dc_luminance_ctx : &dc_chrominance_ctx;
+            MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
+
+            ff_mjpeg_encode_huffman_increment(dc_ctx, current->dc_coefficient);
+
+            for(i = 0; i < current->ac_coefficients_size; i++) {
+                ff_mjpeg_encode_huffman_increment(ac_ctx, current->ac_coefficients[i]);
+            }
+        }
+        uint8_t huff_bits[17], huff_val[256];
+        ff_mjpeg_encode_huffman_close(&dc_luminance_ctx, huff_bits, huff_val, 12);
+        ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
+                                     m->huff_code_dc_luminance,
+                                     huff_bits,
+                                     huff_val);
+        ff_mjpeg_encode_huffman_close(&dc_chrominance_ctx, huff_bits, huff_val, 12);
+        ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
+                                     m->huff_code_dc_chrominance,
+                                     huff_bits,
+                                     huff_val);
+        ff_mjpeg_encode_huffman_close(&ac_luminance_ctx, huff_bits, huff_val, 256);
+        ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
+                                     m->huff_code_ac_luminance,
+                                     huff_bits,
+                                     huff_val);
+        ff_mjpeg_encode_huffman_close(&ac_chrominance_ctx, huff_bits, huff_val, 256);
+        ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
+                                     m->huff_code_ac_chrominance,
+                                     huff_bits,
+                                     huff_val);
+
+        init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
+        init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
+        s->intra_ac_vlc_length      =
+        s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
+        s->intra_chroma_ac_vlc_length      =
+        s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
+
         ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
                                        s->pred, s->intra_matrix, s->chroma_intra_matrix);
         ff_mjpeg_encode_picture_frame(s);
+
+
+        s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
+        s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
     }
 
     ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,

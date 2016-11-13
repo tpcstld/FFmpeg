@@ -1,12 +1,37 @@
+/*
+ * MJPEG encoder
+ * Copyright (c) 2016 William Ma, Ted Ying
+ *
+ * This file is part of FFmpeg.
+ *
+ * FFmpeg is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * FFmpeg is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with FFmpeg; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+#include <string.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> // TODO(yingted): Remove malloc
+#include "libavutil/error.h"
+#include "mjpegenc_huffman.h"
 
 typedef struct Symbol {
 	int value;
 	struct Symbol* next;
 } Symbol;
 
-Symbol* copySymbols(Symbol* root, Symbol ***tail) {
+static Symbol* copySymbols(Symbol* root, Symbol ***tail) {
 	// Copy root into root2
 	Symbol *root2 = NULL;
 	*tail = &root2;
@@ -25,7 +50,7 @@ Symbol* copySymbols(Symbol* root, Symbol ***tail) {
 	return root2;
 }
 
-void printSymbols(Symbol* root) {
+static void printSymbols(Symbol* root) {
 	Symbol* sym = root;
 	printf("TEST: ");
 	while (sym) {
@@ -36,7 +61,7 @@ void printSymbols(Symbol* root) {
 }
 
 // DEEP COPIES THE NODE + ALL ITS NEXT NODES
-Symbol* concatSymbol(Symbol* root, Symbol* node) {
+static Symbol* concatSymbol(Symbol* root, Symbol* node) {
 	if (!root) { return node; }
 	// Append node to the tail of root2
 	Symbol **tail = NULL, **tail2 = NULL;
@@ -63,7 +88,7 @@ typedef struct Heap {
 	PTable** value;
 } Heap;
 
-Heap* initHeap(int size) {
+static Heap* initHeap(int size) {
 	Heap* heap = malloc(sizeof(Heap));
 	heap->size = size;
 	heap->count = 0;
@@ -71,7 +96,7 @@ Heap* initHeap(int size) {
 	return heap;
 }
 
-void pushHeap(Heap* heap, PTable* value) {
+static void pushHeap(Heap* heap, PTable* value) {
 	int curr = heap->count;
 	int parent;
 
@@ -86,7 +111,7 @@ void pushHeap(Heap* heap, PTable* value) {
 	heap->count++;
 }
 
-PTable* popHeap(Heap* heap) {
+static PTable* popHeap(Heap* heap) {
 	int curr = 0;
 	int swap1, swap2;
 
@@ -111,7 +136,7 @@ PTable* popHeap(Heap* heap) {
 	return top;
 }
 
-Heap* heapify(PTable** value, int size) {
+static Heap* heapify(PTable** value, int size) {
 	Heap* heap = initHeap(size);
 	int i, level, curr, swap1, swap2;
 	PTable* swapper = 0;
@@ -156,7 +181,7 @@ Heap* heapify(PTable** value, int size) {
 	return heap;
 }
 
-PTable** constructProbTable(int* input, int size) {
+static PTable** constructProbTable(int* input, int size) {
 	int* probtable = (int*) malloc(sizeof(int)*256);
 	// initialize to zero
 	int i;
@@ -201,7 +226,7 @@ PTable** constructProbTable(int* input, int size) {
 	return ptables;
 }
 
-void printSymbol(PTable* table) {
+static void printSymbol(PTable* table) {
 	Symbol* sym = table->value;
 	printf("Symbol: ");
 	while (sym) {
@@ -211,7 +236,7 @@ void printSymbol(PTable* table) {
 	printf("\n");
 }
 
-void buildHuffmanTree(PTable** variables, int size) {
+static void buildHuffmanTree(PTable** variables, int size) {
 	int i, j;
 
 	// step 2
@@ -262,51 +287,23 @@ printf("im out\n");
 	}
 }
 
-int main() {
-	int* input = (int*) malloc(sizeof(int)*39);
-	// input[0] = 100;
-	// input[1] = 100;
-	// input[2] = 200;
-	// input[3] = 1;
-	// input[4] = 1;
-	// input[5] = 1;
-	// input[6] = 2;
-	// input[7] = 5;
-	// input[8] = 10;
-	// input[9] = 20;
-	// input[10] = 5;
-	// input[11] = 5;
-	// input[12] = 5;
-	// input[13] = 5;
-	// input[14] = 5;
-	// input[15] = 5;
-	// input[19] = 5;
-	// input[16] = 20;
-	// input[17] = 20;
-	// input[18] = 20;
-	int i;
-	for (i = 0; i < 10; i++) {
-		input[i] = 4;
-	}
-	input[i++] = 1;
-	input[i++] = 2;
-	input[i++] = 2;
-	for (i; i < 18; i++) {
-		input[i] = 3;
-	}
-	for (i; i < 39; i++) {
-		input[i] = 5;
-	}
-	// 8 5s (A), 4 20s (B), 3 1s (C), 2 100s (D), 1 2 (E), 1 10 (F), 1 200 (G), 1 -1 (H)
+void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s) {
+    memset(s->val_count, 0, sizeof(s->val_count));
+}
 
-	// H1 F1 G1 E1 D2 C3 B4 A8
-	// H1 F1 HF2 G1 E1 GE2 D2 C3 DC5 B4 A8 BA12
+int ff_mjpeg_encode_close(MJpegEncHuffmanContext *s,
+        uint8_t bits[17], uint8_t val[], int max_nval) {
+    int i;
+    int nval = 0;
+    for (i=0;i<256;++i) {
+        if (s->val_count[i])
+            ++nval;
+    }
+    if (nval > max_nval)
+        return AVERROR(EINVAL);
 
-	// 5 -1s, 3 2s, 2 200s, 2 5s, 4 100s, 4 10s, 2 20s, 3 1s
-	// 2 5s, 2 20s, 3 1s, 4 100s, 3 2s, 4 10s, 2 200s, 5 -1s
-
-	PTable** result = constructProbTable(input, 39);
-	buildHuffmanTree(result, 5);
+	PTable** result = constructProbTable(s->val_count, 256);
+	buildHuffmanTree(result, 16);
 	// Heap* heap = heapify(result, 8);
 	// \ int i;
 	// PTable* val = popHeap(heap);
@@ -317,14 +314,19 @@ int main() {
 	// 	val = popHeap(heap);
 	// } while (val);
 
-	free(input);
-
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 16; i++) {
 		free(result[i]->value);
 		free(result[i]);
 	}
 	free(result);
 //	free(heap->value);
 	//free(heap);
-	return 0;
+
+    // TODO(yingted): Use package merge results
+    memset(bits, 0, sizeof(bits[0]) * 17);
+    bits[8] = 255;
+    bits[9] = 1;
+    memcpy(val, s->val_count, 256);
+
+    return 0;
 }

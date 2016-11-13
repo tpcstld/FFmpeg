@@ -39,14 +39,13 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
-// TODO(jjiang): Check with Ted to make sure this is good.
 typedef struct MJpegValue {
-  int dc_coefficient;
-  int* ac_coefficients;
-  int ac_coefficients_size;
-  // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
-  int n;
-  struct MJpegValue* next;
+    int dc_coefficient;
+    int *ac_coefficients;
+    int ac_coefficients_size;
+    // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
+    int n;
+    struct MJpegValue *next;
 } MJpegValue;
 
 typedef struct MJpegContext {
@@ -60,22 +59,22 @@ typedef struct MJpegContext {
     uint8_t huff_size_ac_chrominance[256];
     uint16_t huff_code_ac_chrominance[256];
 
+    // All Huffman tables
+    // Default DC tables have exactly 12 values
     uint8_t bits_dc_luminance[17];
     uint8_t val_dc_luminance[12];
     uint8_t bits_dc_chrominance[17];
     uint8_t val_dc_chrominance[12];
 
+    // 8-bit JPEG has max 256 values
     uint8_t bits_ac_luminance[17];
     uint8_t val_ac_luminance[256];
-    int val_ac_luminance_size;
     uint8_t bits_ac_chrominance[17];
     uint8_t val_ac_chrominance[256];
-    int val_ac_chrominance_size;
 
-    // TODO(jjiang): The size values might not be necessary.
-
-    MJpegValue* buffer;
-    MJpegValue* buffer_last;
+    MJpegValue *buffer;
+    MJpegValue *buffer_last;
+    int error;
 } MJpegContext;
 
 static inline void put_marker(PutBitContext *p, enum JpegMarker code)
@@ -85,9 +84,8 @@ static inline void put_marker(PutBitContext *p, enum JpegMarker code)
 }
 
 int  ff_mjpeg_encode_init(MpegEncContext *s);
+void ff_mjpeg_encode_picture_frame(MpegEncContext *s);
 void ff_mjpeg_encode_close(MpegEncContext *s);
-void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64]);
-
-void ff_mjpeg_encode_output(MpegEncContext *s);
+int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64]);
 
 #endif /* AVCODEC_MJPEGENC_H */

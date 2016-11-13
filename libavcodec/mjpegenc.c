@@ -105,6 +105,7 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     /* buffers start out empty */
     m->buffer = NULL;
     m->buffer_last = NULL;
+    m->error = 0;
 
     init_uni_ac_vlc(m->huff_size_ac_luminance,   uni_ac_vlc_len);
     init_uni_ac_vlc(m->huff_size_ac_chrominance, uni_chroma_ac_vlc_len);
@@ -119,95 +120,21 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 
 av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 {
+    while (s->mjpeg_ctx->buffer) {
+        struct MJpegValue *buffer = s->mjpeg_ctx->buffer;
+        s->mjpeg_ctx->buffer = buffer->next;
+
+        if (buffer->ac_coefficients)
+            av_freep(&buffer->ac_coefficients);
+        av_freep(&buffer);
+    }
+    s->mjpeg_ctx->buffer_last = NULL;
+
     av_freep(&s->mjpeg_ctx);
 }
 
-static void encode_block(MpegEncContext *s, int16_t *block, int n)
-{
-    int i, j;
-    int component, dc, run, last_index, val;
-    MJpegContext *m = s->mjpeg_ctx;
-    MJpegValue* buffer_block;
-
-    // TODO(jjiang): Out of memory error return?
-    buffer_block = av_malloc(sizeof(MJpegValue));
-    if (!buffer_block) {
-        return;
-    }
-
-    buffer_block->next = NULL;
-
-    /* Add to end of buffer */
-    if (!m->buffer && !m->buffer_last) {
-      m->buffer = buffer_block;
-      m->buffer_last = buffer_block;
-    } else {
-      m->buffer_last->next = buffer_block;
-      m->buffer_last = buffer_block;
-    }
-
-    /* DC coef */
-    component = (n <= 3 ? 0 : (n&1) + 1);
-    dc = block[0]; /* overflow is impossible */
-    val = dc - s->last_dc[component];
-
-    buffer_block->dc_coefficient = val;
-    buffer_block->n = n;
-
-    s->last_dc[component] = dc;
-
-    /* AC coefs */
-
-    run = 0;
-    last_index = s->block_last_index[n];
-
-    buffer_block->ac_coefficients = av_malloc(sizeof(int) * last_index);
-    buffer_block->ac_coefficients_size = last_index;
-
-    for(i=1;i<=last_index;i++) {
-        j = s->intra_scantable.permutated[i];
-        val = block[j];
-        buffer_block->ac_coefficients[i-1] = val;
-    }
-}
-
-void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
-{
-    int i;
-    if (s->chroma_format == CHROMA_444) {
-        encode_block(s, block[0], 0);
-        encode_block(s, block[2], 2);
-        encode_block(s, block[4], 4);
-        encode_block(s, block[8], 8);
-        encode_block(s, block[5], 5);
-        encode_block(s, block[9], 9);
-
-        if (16*s->mb_x+8 < s->width) {
-            encode_block(s, block[1], 1);
-            encode_block(s, block[3], 3);
-            encode_block(s, block[6], 6);
-            encode_block(s, block[10], 10);
-            encode_block(s, block[7], 7);
-            encode_block(s, block[11], 11);
-        }
-    } else {
-        for(i=0;i<5;i++) {
-            encode_block(s, block[i], i);
-        }
-        if (s->chroma_format == CHROMA_420) {
-            encode_block(s, block[5], 5);
-        } else {
-            encode_block(s, block[6], 6);
-            encode_block(s, block[5], 5);
-            encode_block(s, block[7], 7);
-        }
-    }
-
-    s->i_tex_bits += get_bits_diff(s);
-}
-
 // TODO(jjang): Test
-void ff_mjpeg_encode_output(MpegEncContext *s) {
+void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     int i, val, run, mant, nbits, code;
     MJpegContext *m;
     uint8_t *huff_size_ac;
@@ -219,7 +146,6 @@ void ff_mjpeg_encode_output(MpegEncContext *s) {
     current = m->buffer;
 
     while (current) {
-        /* printf("B: %d %d\n", current->n, current->dc_coefficient); */
         if (current->n < 4) {
             ff_mjpeg_encode_dc(&s->pb, current->dc_coefficient,
                 m->huff_size_dc_luminance, m->huff_code_dc_luminance);
@@ -259,6 +185,7 @@ void ff_mjpeg_encode_output(MpegEncContext *s) {
             }
         }
 
+        /* output EOB only if not already 64 values */
         if (current->ac_coefficients_size < 63 || run != 0)
             put_bits(&s->pb, huff_size_ac[0], huff_code_ac[0]);
 
@@ -270,6 +197,101 @@ void ff_mjpeg_encode_output(MpegEncContext *s) {
 
     m->buffer = NULL;
     m->buffer_last = NULL;
+}
+
+static int encode_block(MpegEncContext *s, int16_t *block, int n)
+{
+    int i, j;
+    int component, dc, last_index, val;
+    MJpegContext *m = s->mjpeg_ctx;
+    MJpegValue* buffer_block;
+
+    // TODO(jjiang): Out of memory error return?
+    buffer_block = av_malloc(sizeof(MJpegValue));
+    if (!buffer_block) {
+        return AVERROR(ENOMEM);
+    }
+
+    buffer_block->next = NULL;
+
+    /* Add to end of buffer */
+    if (!m->buffer) {
+        m->buffer = buffer_block;
+        m->buffer_last = buffer_block;
+    } else {
+        m->buffer_last->next = buffer_block;
+        m->buffer_last = buffer_block;
+    }
+
+    /* DC coef */
+    component = (n <= 3 ? 0 : (n&1) + 1);
+    dc = block[0]; /* overflow is impossible */
+    val = dc - s->last_dc[component];
+
+    buffer_block->dc_coefficient = val;
+    buffer_block->n = n;
+
+    s->last_dc[component] = dc;
+
+    /* AC coefs */
+
+    last_index = s->block_last_index[n];
+
+    buffer_block->ac_coefficients = av_malloc(sizeof(int) * last_index);
+    if (!buffer_block->ac_coefficients) {
+        return AVERROR(ENOMEM);
+    }
+    buffer_block->ac_coefficients_size = last_index;
+
+    for(i=1;i<=last_index;i++) {
+        j = s->intra_scantable.permutated[i];
+        val = block[j];
+        buffer_block->ac_coefficients[i - 1] = val;
+    }
+    return 0;
+}
+
+int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
+{
+    int i;
+    int ret = 0;
+    if (s->mjpeg_ctx->error)
+        return s->mjpeg_ctx->error;
+    if (s->chroma_format == CHROMA_444) {
+        if (!ret) ret = encode_block(s, block[0], 0);
+        if (!ret) ret = encode_block(s, block[2], 2);
+        if (!ret) ret = encode_block(s, block[4], 4);
+        if (!ret) ret = encode_block(s, block[8], 8);
+        if (!ret) ret = encode_block(s, block[5], 5);
+        if (!ret) ret = encode_block(s, block[9], 9);
+
+        if (16*s->mb_x+8 < s->width) {
+            if (!ret) ret = encode_block(s, block[1], 1);
+            if (!ret) ret = encode_block(s, block[3], 3);
+            if (!ret) ret = encode_block(s, block[6], 6);
+            if (!ret) ret = encode_block(s, block[10], 10);
+            if (!ret) ret = encode_block(s, block[7], 7);
+            if (!ret) ret = encode_block(s, block[11], 11);
+        }
+    } else {
+        for(i=0;i<5;i++) {
+            if (!ret) ret = encode_block(s, block[i], i);
+        }
+        if (s->chroma_format == CHROMA_420) {
+            if (!ret) ret = encode_block(s, block[5], 5);
+        } else {
+            if (!ret) ret = encode_block(s, block[6], 6);
+            if (!ret) ret = encode_block(s, block[5], 5);
+            if (!ret) ret = encode_block(s, block[7], 7);
+        }
+    }
+    if (ret) {
+        s->mjpeg_ctx->error = ret;
+        return ret;
+    }
+
+    s->i_tex_bits += get_bits_diff(s);
+    return 0;
 }
 
 // maximum over s->mjpeg_vsample[i]

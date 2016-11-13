@@ -131,15 +131,30 @@ static void jpeg_table_header(AVCodecContext *avctx, PutBitContext *p,
     ptr = put_bits_ptr(p);
     put_bits(p, 16, 0); /* patched later */
     size = 2;
-    size += put_huffman_table(p, 0, 0, s->mjpeg_ctx->bits_dc_luminance,
-                              s->mjpeg_ctx->val_dc_luminance);
-    size += put_huffman_table(p, 0, 1, s->mjpeg_ctx->bits_dc_chrominance,
-                              s->mjpeg_ctx->val_dc_chrominance);
 
-    size += put_huffman_table(p, 1, 0, s->mjpeg_ctx->bits_ac_luminance,
-                              s->mjpeg_ctx->val_ac_luminance);
-    size += put_huffman_table(p, 1, 1, s->mjpeg_ctx->bits_ac_chrominance,
-                              s->mjpeg_ctx->val_ac_chrominance);
+    // Only MJPEG can have a variable Huffman variable. All other
+    // formats use the default Huffman table.
+    if (s->out_format == FMT_MJPEG) {
+        size += put_huffman_table(p, 0, 0, s->mjpeg_ctx->bits_dc_luminance,
+                                  s->mjpeg_ctx->val_dc_luminance);
+        size += put_huffman_table(p, 0, 1, s->mjpeg_ctx->bits_dc_chrominance,
+                                  s->mjpeg_ctx->val_dc_chrominance);
+
+        size += put_huffman_table(p, 1, 0, s->mjpeg_ctx->bits_ac_luminance,
+                                  s->mjpeg_ctx->val_ac_luminance);
+        size += put_huffman_table(p, 1, 1, s->mjpeg_ctx->bits_ac_chrominance,
+                                  s->mjpeg_ctx->val_ac_chrominance);
+    } else {
+        size += put_huffman_table(p, 0, 0, avpriv_mjpeg_bits_dc_luminance,
+                                  avpriv_mjpeg_val_dc);
+        size += put_huffman_table(p, 0, 1, avpriv_mjpeg_bits_dc_chrominance,
+                                  avpriv_mjpeg_val_dc);
+
+        size += put_huffman_table(p, 1, 0, avpriv_mjpeg_bits_ac_luminance,
+                                  avpriv_mjpeg_val_ac_luminance);
+        size += put_huffman_table(p, 1, 1, avpriv_mjpeg_bits_ac_chrominance,
+                                  avpriv_mjpeg_val_ac_chrominance);
+    }
     AV_WB16(ptr, size);
 }
 

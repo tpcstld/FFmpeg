@@ -38,6 +38,7 @@ OBJS = allcodecs.o                                                      \
        mathtables.o                                                     \
        mediacodec.o                                                     \
        options.o                                                        \
+       optimalhuffman.o 												\
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \
@@ -1025,6 +1026,7 @@ TESTPROGS = imgconvert                                                  \
             jpeg2000dwt                                                 \
             mathops                                                    \
             options                                                     \
+            optimalhuffman												\
             utils                                                       \
 
 TESTPROGS-$(CONFIG_CABAC)                 += cabac

@@ -44,5 +44,11 @@ fate-libavcodec-utils: CMD = run libavcodec/tests/utils
 fate-libavcodec-utils: CMP = null
 fate-libavcodec-utils: REF = /dev/null
 
+FATE_LIBAVCODEC-yes += fate-libavcodec-huffman
+fate-libavcodec-huffman: libavcodec/tests/optimalhuffman$(EXESUF)
+fate-libavcodec-huffman: CMD = run libavcodec/tests/optimalhuffman
+fate-libavcodec-huffman: CMP = null
+fate-libavcodec-huffman: REF = /dev/null
+
 FATE-$(CONFIG_AVCODEC) += $(FATE_LIBAVCODEC-yes)
 fate-libavcodec: $(FATE_LIBAVCODEC-yes)

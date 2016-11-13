@@ -303,6 +303,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
         return AVERROR(EINVAL);
     }
 
+#if 0
 	PTable** result = constructProbTable(s->val_count, 256);
 	buildHuffmanTree(result, 16);
 	// Heap* heap = heapify(result, 8);
@@ -322,6 +323,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
 	free(result);
 //	free(heap->value);
 	//free(heap);
+#endif
 
     // TODO(yingted): Use package merge results
     memset(bits, 0, sizeof(bits[0]) * 17);

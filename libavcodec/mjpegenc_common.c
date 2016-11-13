@@ -426,7 +426,8 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
             MJpegEncHuffmanContext *dc_ctx = current->n < 4 ? &dc_luminance_ctx : &dc_chrominance_ctx;
             MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
 
-            ff_mjpeg_encode_huffman_increment(dc_ctx, current->dc_coefficient);
+            ff_mjpeg_encode_huffman_increment(dc_ctx,
+                    current->dc_coefficient == 0 ? 0 : av_log2_16bit(abs(current->dc_coefficient)) + 1);
 
             for(i = 0; i < current->ac_coefficients_size; i++) {
                 ff_mjpeg_encode_huffman_increment(ac_ctx, current->ac_coefficients[i]);
@@ -434,29 +435,35 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
         }
 
         if (m->error)
-            return 1;
+            return m->error;
 
         av_assert0(!s->intra_ac_vlc_length);
 
-        ff_mjpeg_encode_huffman_close(&dc_luminance_ctx,
+        m->error = ff_mjpeg_encode_huffman_close(&dc_luminance_ctx,
                 m->bits_dc_luminance, m->val_dc_luminance, 12);
+        if (m->error)
+            return m->error;
         ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
                                      m->huff_code_dc_luminance,
                                      m->bits_dc_luminance,
                                      m->val_dc_luminance);
-        ff_mjpeg_encode_huffman_close(&dc_chrominance_ctx,
+        m->error = ff_mjpeg_encode_huffman_close(&dc_chrominance_ctx,
                 m->bits_dc_chrominance, m->val_dc_chrominance, 12);
+        if (m->error)
+            return m->error;
         ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
                                      m->huff_code_dc_chrominance,
                                      m->bits_dc_chrominance,
                                      m->val_dc_chrominance);
-        ff_mjpeg_encode_huffman_close(&ac_luminance_ctx,
+        m->error = ff_mjpeg_encode_huffman_close(&ac_luminance_ctx,
                 m->bits_ac_luminance, m->val_ac_luminance, 256);
+        if (m->error)
+            return m->error;
         ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
                                      m->huff_code_ac_luminance,
                                      m->bits_ac_luminance,
                                      m->val_ac_luminance);
-        ff_mjpeg_encode_huffman_close(&ac_chrominance_ctx,
+        m->error = ff_mjpeg_encode_huffman_close(&ac_chrominance_ctx,
                 m->bits_ac_chrominance, m->val_ac_chrominance, 256);
         ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
                                      m->huff_code_ac_chrominance,

@@ -40,9 +40,9 @@
 #include "put_bits.h"
 
 typedef struct MJpegValue {
-    int dc_coefficient;
-    int *ac_coefficients;
-    int ac_coefficients_size;
+    uint8_t codes[64];
+    uint16_t mants[64];
+    int ncode;
     // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
     int n;
     struct MJpegValue *next;

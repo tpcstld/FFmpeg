@@ -34,6 +34,7 @@ OBJS = allcodecs.o                                                      \
        dirac.o                                                          \
        dv_profile.o                                                     \
        imgconvert.o                                                     \
+       huffman.o 														\
        jni.o                                                            \
        mathtables.o                                                     \
        mediacodec.o                                                     \

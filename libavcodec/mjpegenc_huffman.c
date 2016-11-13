@@ -325,9 +325,9 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
 
     // TODO(yingted): Use package merge results
     memset(bits, 0, sizeof(bits[0]) * 17);
-    bits[8] = 255;
-    bits[9] = 1;
-    for (i = 0; i < 256; ++i) {
+    bits[8] = nval > 255 ? 255 : nval;
+    bits[9] = nval - bits[8];
+    for (i = 0; i < nval; ++i) {
         val[i] = i;
     }
 

@@ -477,57 +477,54 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
 
     m = s->mjpeg_ctx;
 
-    // TODO(jjiang): Ensure that this check is all you need.
-    if (s->avctx->codec_id == AV_CODEC_ID_MJPEG) {
-        if (m->error)
-            return m->error;
+    if (m->error)
+        return m->error;
 
-        // Build all the Huffman tables.
-        switch (s->huffman) {
-        case 1:
-            ff_mjpeg_build_default_huffman(m);
-            break;
-        case 2:
-            ff_mjpeg_build_optimal_huffman(m);
-            break;
-        }
-
-        ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
-                                     m->huff_code_dc_luminance,
-                                     m->bits_dc_luminance,
-                                     m->val_dc_luminance);
-        ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
-                                     m->huff_code_dc_chrominance,
-                                     m->bits_dc_chrominance,
-                                     m->val_dc_chrominance);
-        ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
-                                     m->huff_code_ac_luminance,
-                                     m->bits_ac_luminance,
-                                     m->val_ac_luminance);
-        ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
-                                     m->huff_code_ac_chrominance,
-                                     m->bits_ac_chrominance,
-                                     m->val_ac_chrominance);
-
-        init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
-        init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
-        av_assert0(!s->intra_ac_vlc_length);
-        s->intra_ac_vlc_length      =
-        s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
-        s->intra_chroma_ac_vlc_length      =
-        s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
-
-        ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
-                                       s->pred, s->intra_matrix, s->chroma_intra_matrix);
-        ff_mjpeg_encode_picture_frame(s);
-        if (m->error < 0) {
-            ret = m->error;
-            return ret;
-        }
-
-        s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
-        s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
+    // Build all the Huffman tables.
+    switch (s->huffman) {
+    case 1:
+        ff_mjpeg_build_default_huffman(m);
+        break;
+    case 2:
+        ff_mjpeg_build_optimal_huffman(m);
+        break;
     }
+
+    ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
+                                 m->huff_code_dc_luminance,
+                                 m->bits_dc_luminance,
+                                 m->val_dc_luminance);
+    ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
+                                 m->huff_code_dc_chrominance,
+                                 m->bits_dc_chrominance,
+                                 m->val_dc_chrominance);
+    ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
+                                 m->huff_code_ac_luminance,
+                                 m->bits_ac_luminance,
+                                 m->val_ac_luminance);
+    ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
+                                 m->huff_code_ac_chrominance,
+                                 m->bits_ac_chrominance,
+                                 m->val_ac_chrominance);
+
+    init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
+    init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
+    av_assert0(!s->intra_ac_vlc_length);
+    s->intra_ac_vlc_length      =
+    s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
+    s->intra_chroma_ac_vlc_length      =
+    s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
+
+    ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
+                                   s->pred, s->intra_matrix, s->chroma_intra_matrix);
+    ff_mjpeg_encode_picture_frame(s);
+    if (m->error < 0) {
+        ret = m->error;
+        return ret;
+    }
+
+    s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
+    s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
 
     ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,
                                             put_bits_count(&s->pb) / 4 + 1000);

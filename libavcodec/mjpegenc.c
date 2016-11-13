@@ -144,6 +144,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
 
         next = current->next;
         av_freep(&current->ac_coefficients);
+        av_freep(&current->ac_coefficient_codes);
         av_freep(&current);
         current = next;
     }
@@ -154,7 +155,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
 
 static int encode_block(MpegEncContext *s, int16_t *block, int n)
 {
-    int i, j;
+    int i, j, run, code, mant, nbits;
     int component, dc, last_index, val;
     MJpegContext *m = s->mjpeg_ctx;
     MJpegValue* buffer_block;
@@ -191,15 +192,40 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     last_index = s->block_last_index[n];
 
     buffer_block->ac_coefficients = av_malloc(sizeof(int) * last_index);
-    if (!buffer_block->ac_coefficients) {
+    buffer_block->ac_coefficient_codes = av_malloc(sizeof(int) * last_index);
+    if (!buffer_block->ac_coefficients || !buffer_block->ac_coefficient_codes) {
         return AVERROR(ENOMEM);
     }
     buffer_block->ac_coefficients_size = last_index;
 
+    // TODO(jjiang): Refactor so that we only do the RLE once.
+    // When we write the bits, we'll write the RLE code itself.
+    run = 0;
     for(i=1;i<=last_index;i++) {
         j = s->intra_scantable.permutated[i];
         val = block[j];
         buffer_block->ac_coefficients[i - 1] = val;
+
+        if (val == 0) {
+            run++;
+        } else {
+            while (run >= 16) {
+                buffer_block->ac_coefficient_codes[i - 1] = 0xf0;
+                run -= 16;
+            }
+            mant = val;
+            if (val < 0) {
+                val = -val;
+                mant--;
+            }
+
+            nbits= av_log2_16bit(val) + 1;
+            code = (run << 4) | nbits;
+
+            buffer_block->ac_coefficient_codes[i - 1] = code;
+
+            run = 0;
+        }
     }
     return 0;
 }

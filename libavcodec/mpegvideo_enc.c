@@ -3897,7 +3897,7 @@ static int encode_picture(MpegEncContext *s, int picture_number)
     s->last_bits= put_bits_count(&s->pb);
     switch(s->out_format) {
     case FMT_MJPEG:
-        /* The mjpeg headers are printed after the initial encoding so that the
+        /* The MJPEG headers are printed after the initial encoding so that the
          * optimal huffman encoding can be found. */
         break;
     case FMT_H261:

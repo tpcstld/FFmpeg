@@ -377,14 +377,15 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     int i;
     PutBitContext *pbc = &s->pb;
     int mb_y = s->mb_y - !s->mb_x;
+    int val_ac_luminance_size, val_ac_chrominance_size;
     int ret;
 
     // TODO(jjiang): Ensure that this check is all you need.
     if (s->avctx->codec_id == AV_CODEC_ID_MJPEG) {
         // All the variables assigned by these for loops shall move into the
         // function!
-        s->mjpeg_ctx->val_ac_luminance_size = 0;
-        s->mjpeg_ctx->val_ac_chrominance_size = 0;
+        val_ac_luminance_size = 0;
+        val_ac_chrominance_size = 0;
 
         for(i=0;i<17;i++) {
             s->mjpeg_ctx->bits_dc_luminance[i] = avpriv_mjpeg_bits_dc_luminance[i];
@@ -393,26 +394,28 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
             s->mjpeg_ctx->bits_ac_luminance[i] = avpriv_mjpeg_bits_ac_luminance[i];
             s->mjpeg_ctx->bits_ac_chrominance[i] = avpriv_mjpeg_bits_ac_chrominance[i];
 
-            s->mjpeg_ctx->val_ac_luminance_size += s->mjpeg_ctx->bits_ac_luminance[i];
-            s->mjpeg_ctx->val_ac_chrominance_size += s->mjpeg_ctx->bits_ac_chrominance[i];
+            val_ac_luminance_size += s->mjpeg_ctx->bits_ac_luminance[i];
+            val_ac_chrominance_size += s->mjpeg_ctx->bits_ac_chrominance[i];
         }
+        av_assert0(val_ac_luminance_size <= 256);
+        av_assert0(val_ac_chrominance_size <= 256);
 
         for(i=0;i<12;i++) {
             s->mjpeg_ctx->val_dc_luminance[i] = avpriv_mjpeg_val_dc[i];
             s->mjpeg_ctx->val_dc_chrominance[i] = avpriv_mjpeg_val_dc[i];
         }
 
-        for (i=0;i<s->mjpeg_ctx->val_ac_luminance_size;i++) {
+        for (i=0;i<val_ac_luminance_size;i++) {
             s->mjpeg_ctx->val_ac_luminance[i] = avpriv_mjpeg_val_ac_luminance[i];
         }
 
-        for (i=0;i<s->mjpeg_ctx->val_ac_chrominance_size;i++) {
+        for (i=0;i<val_ac_chrominance_size;i++) {
             s->mjpeg_ctx->val_ac_chrominance[i] = avpriv_mjpeg_val_ac_chrominance[i];
         }
 
         ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
                                        s->pred, s->intra_matrix, s->chroma_intra_matrix);
-        ff_mjpeg_encode_output(s);
+        ff_mjpeg_encode_picture_frame(s);
     }
 
     ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,

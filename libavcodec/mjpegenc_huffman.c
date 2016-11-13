@@ -328,7 +328,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
     bits[8] = nval > 255 ? 255 : nval;
     bits[9] = nval - bits[8];
     for (i = 0; i < nval; ++i) {
-        val[i] = i;
+        val[i] = i < bits[8] ? i : i * 2;
     }
 
     return 0;

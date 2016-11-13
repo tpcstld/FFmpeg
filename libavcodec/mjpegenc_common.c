@@ -503,6 +503,10 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
         ff_mjpeg_encode_picture_header(s->avctx, &s->pb, &s->intra_scantable,
                                        s->pred, s->intra_matrix, s->chroma_intra_matrix);
         ff_mjpeg_encode_picture_frame(s);
+        if (m->error < 0) {
+            ret = m->error;
+            return ret;
+        }
 
 
         s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;

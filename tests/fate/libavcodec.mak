@@ -45,8 +45,8 @@ fate-libavcodec-utils: CMP = null
 fate-libavcodec-utils: REF = /dev/null
 
 FATE_LIBAVCODEC-yes += fate-libavcodec-huffman
-fate-libavcodec-huffman: libavcodec/tests/optimalhuffman$(EXESUF)
-fate-libavcodec-huffman: CMD = run libavcodec/tests/optimalhuffman
+fate-libavcodec-huffman: libavcodec/tests/mjpegenc_huffman$(EXESUF)
+fate-libavcodec-huffman: CMD = run libavcodec/tests/mjpegenc_huffman
 fate-libavcodec-huffman: CMP = null
 fate-libavcodec-huffman: REF = /dev/null
 

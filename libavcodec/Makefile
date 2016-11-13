@@ -38,7 +38,7 @@ OBJS = allcodecs.o                                                      \
        mathtables.o                                                     \
        mediacodec.o                                                     \
        options.o                                                        \
-       mjpegenc_huffman.o 												\
+       mjpegenc_huffman.o                                               \
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \

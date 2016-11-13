@@ -39,7 +39,7 @@ OBJS = allcodecs.o                                                      \
        mediacodec.o                                                     \
        mpeg12framerate.o                                                \
        options.o                                                        \
-       mjpegenc_huffman.o 												\
+       mjpegenc_huffman.o                                               \
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \

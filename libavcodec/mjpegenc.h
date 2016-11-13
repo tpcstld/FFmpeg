@@ -59,6 +59,10 @@ typedef struct MJpegContext {
     uint8_t huff_size_ac_chrominance[256];
     uint16_t huff_code_ac_chrominance[256];
 
+    // Storage for VLC (in MpegEncContext)
+    uint8_t uni_ac_vlc_len[64 * 64 * 2];
+    uint8_t uni_chroma_ac_vlc_len[64 * 64 * 2];
+
     // All Huffman tables
     // Default DC tables have exactly 12 values
     uint8_t bits_dc_luminance[17];

@@ -291,7 +291,7 @@ void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s) {
     memset(s->val_count, 0, sizeof(s->val_count));
 }
 
-int ff_mjpeg_encode_close(MJpegEncHuffmanContext *s,
+int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
         uint8_t bits[17], uint8_t val[], int max_nval) {
     int i;
     int nval = 0;
@@ -299,8 +299,9 @@ int ff_mjpeg_encode_close(MJpegEncHuffmanContext *s,
         if (s->val_count[i])
             ++nval;
     }
-    if (nval > max_nval)
+    if (nval > max_nval) {
         return AVERROR(EINVAL);
+    }
 
 	PTable** result = constructProbTable(s->val_count, 256);
 	buildHuffmanTree(result, 16);

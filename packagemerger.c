@@ -271,6 +271,11 @@ typedef struct List {
 	int items[257 * 16];	// chain of all items									A, B, A, B, C, A, B, C, D, C, D, D, E
 } List;
 
+typedef struct HuffTable {
+	int value;
+	int length;
+} HuffTable;
+
 int compare_by_value(const void *a, const void *b) {
 	PTable a_val = *(PTable *)a;
 	PTable b_val = *(PTable *)b;
@@ -293,21 +298,17 @@ void buildHuffmanTree(PTable probTable[], int size) {
 		sorted[i] = probTable[i]; 
 	}
 	qsort(sorted, size, sizeof(PTable), compare_by_value);
-	for (i = 0; i < size; i++) {
-		printf("count: %d value: %d\n", sorted[i].prob, sorted[i].value);
-	}
-
-	printf("sorted\n");
 
 	int times;
-	for (times = 0; times < 3; times++) {
+	for (times = 0; times <= 3; times++) {
 		to->nitems = 0;
 	//	from->nitems = 0;
 		to->item_idx[0] = 0;
 	//	from->item_idx[0] = 0;
 		int j = 0, k = 0;
-		i = 0;
-		while (i < size || j < from->nitems) {
+
+		if (times < 3) { i = 0; }
+		while (i < size || j + 1 < from->nitems) {
 			++to->nitems;
 			to->item_idx[to->nitems] = to->item_idx[to->nitems - 1];
 			if (i < size && (j + 1 >= from->nitems || sorted[i].prob < from->probability[j] + from->probability[j + 1])) {
@@ -315,40 +316,36 @@ void buildHuffmanTree(PTable probTable[], int size) {
 				to->probability[to->nitems - 1] = sorted[i].prob;
 				++i;
 			} else {
-				printf("combining ");
 				for (k = from->item_idx[j]; k < from->item_idx[j + 2]; ++k) {
-					printf("%d ", from->items[k]);
 					to->items[to->item_idx[to->nitems]++] = from->items[k];
 				}
-				printf("\n");
 				to->probability[to->nitems-1] = from->probability[j] + from->probability[j + 1];
 				j += 2;
 			}
 		}
-
 		temp = to;
 		to = from;
 		from = temp;
-
-		printf("finished %d round\n", times);
 	}
 
-	int nbits[257];
-
-	for (i = 0; i < 257; ++i) {
-		nbits[i] = 0;
-	}
+	int nbits[257] = {0};
 
 	for (i = 0; i < from->item_idx[size - 1]; ++i) {
 		++nbits[from->items[i]];
 	}
 
-	for (i = 0; i < size; ++i) {
+	HuffTable distincts[size];
+	int j = 0;
+	for (i = 0; i < 257; i++) {
 		if (nbits[i] > 0) {
-			printf("value: %d, count: %d ", i, nbits[i]);
+			distincts[j].value = i;
+			distincts[j].length = nbits[i];
+			++j;
 		}
 	}
-	printf("\n");
+
+	free(to);
+	free(from);
 }
 
 int main() {
@@ -405,7 +402,7 @@ int main() {
 		if (counts[i] > 0) { ++distincts; }
 	}
 
-	PTable probTable[distincts];
+	PTable probTable[distincts + 1];
 	int j = 0;
 	for (i = 0; i < 256; i++) {
 		if (counts[i] > 0) {
@@ -414,12 +411,12 @@ int main() {
 			++j;
 		}	 
 	}
-//	probTable[j].value = 256;
-//	probTable[j].prob = 0;
+	probTable[j].value = 256;
+	probTable[j].prob = 0;
 
 	//PTable** result = constructProbTable(input, 39);
-printf("got here\n");
-	buildHuffmanTree(probTable, distincts);
+	buildHuffmanTree(probTable, distincts + 1);
+
 	// Heap* heap = heapify(result, 8);
 	// \ int i;
 	// PTable* val = popHeap(heap);

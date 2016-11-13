@@ -38,7 +38,7 @@ OBJS = allcodecs.o                                                      \
        mathtables.o                                                     \
        mediacodec.o                                                     \
        options.o                                                        \
-       optimalhuffman.o 												\
+       mjpegenc_huffman.o 												\
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \
@@ -1024,9 +1024,9 @@ SKIPHEADERS-$(CONFIG_VIDEOTOOLBOX)     += videotoolbox.h vda_vt_internal.h
 
 TESTPROGS = imgconvert                                                  \
             jpeg2000dwt                                                 \
-            mathops                                                    \
+            mathops                                                     \
             options                                                     \
-            optimalhuffman												\
+            mjpegenc_huffman                                            \
             utils                                                       \
 
 TESTPROGS-$(CONFIG_CABAC)                 += cabac

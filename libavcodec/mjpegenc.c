@@ -130,7 +130,6 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     m->buffer_last = NULL;
 }
 
-__attribute__((optimize("O0")))
 static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
 {
     int mant, code;
@@ -155,7 +154,6 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
     }
 }
 
-__attribute__((optimize("O0")))
 static int encode_block(MpegEncContext *s, int16_t *block, int n)
 {
     int i, j;

@@ -300,7 +300,7 @@ void buildHuffmanTree(PTable probTable[], int size) {
 	qsort(sorted, size, sizeof(PTable), compare_by_value);
 
 	int times;
-	for (times = 0; times <= 3; times++) {
+	for (times = 0; times <= 16; times++) {
 		to->nitems = 0;
 	//	from->nitems = 0;
 		to->item_idx[0] = 0;

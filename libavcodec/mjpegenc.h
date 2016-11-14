@@ -40,8 +40,9 @@
 #include "put_bits.h"
 
 typedef struct MJpegValue {
-    uint8_t codes[64];
-    uint16_t mants[64];
+    // Store one macroblock's worth of storage
+    uint8_t codes[64 * 10];
+    uint16_t mants[64 * 10];
     int ncode;
     // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
     int n;

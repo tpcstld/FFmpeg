@@ -162,7 +162,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
     int mant, code;
     MJpegValue *m = s->buffer_last;
     av_assert0(m->ncode >= 0);
-    av_assert0(m->ncode < 64);
+    av_assert0(m->ncode < sizeof(m->codes) / sizeof(m->codes[0]));
 
     if (val == 0) {
         av_assert0(run == 0);
@@ -186,24 +186,26 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     int i, j;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
-    MJpegValue* buffer_block;
+    MJpegValue* buffer_block = m->buffer_last;
 
-    // TODO(jjiang): Out of memory error return?
-    buffer_block = av_malloc(sizeof(MJpegValue));
-    if (!buffer_block) {
-        return AVERROR(ENOMEM);
-    }
+    if (buffer_block == NULL || buffer_block->ncode + 64 >
+            sizeof(buffer_block->codes) / sizeof(buffer_block->codes[0])) {
+        buffer_block = av_malloc(sizeof(MJpegValue));
+        if (!buffer_block) {
+            return AVERROR(ENOMEM);
+        }
 
-    buffer_block->next = NULL;
-    buffer_block->ncode = 0;
+        buffer_block->next = NULL;
+        buffer_block->ncode = 0;
 
-    /* Add to end of buffer */
-    if (!m->buffer) {
-        m->buffer = buffer_block;
-        m->buffer_last = buffer_block;
-    } else {
-        m->buffer_last->next = buffer_block;
-        m->buffer_last = buffer_block;
+        /* Add to end of buffer */
+        if (!m->buffer) {
+            m->buffer = buffer_block;
+            m->buffer_last = buffer_block;
+        } else {
+            m->buffer_last->next = buffer_block;
+            m->buffer_last = buffer_block;
+        }
     }
 
     /* DC coef */

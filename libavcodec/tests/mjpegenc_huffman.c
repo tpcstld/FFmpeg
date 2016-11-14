@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     HuffTable distincts[5];
 
     // Build optimal huffman tree
-    ff_mjpegenc_huffman_compute_bits(val_counts, distincts, 5);
+    ff_mjpegenc_huffman_compute_bits(val_counts, distincts, 5, 3);
 
     for (i = 0; i < 5; i++) {
         if (distincts[i].code != expected[i].code ||

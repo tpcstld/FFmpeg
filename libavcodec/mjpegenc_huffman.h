@@ -59,5 +59,5 @@ typedef struct HuffTable {
     int length;
 } HuffTable;
 
-void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size);
+void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size, int maxLength);
 #endif /* AVCODEC_MJPEGENC_HUFFMAN_H */

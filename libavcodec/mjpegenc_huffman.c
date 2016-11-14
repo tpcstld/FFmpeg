@@ -51,7 +51,7 @@ static int compare_by_length(const void *a, const void *b) {
     return 0;
 }
 
-void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
+void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size, int maxLength) {
     PackageMergerList list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;
@@ -66,14 +66,14 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     from->item_idx[0] = 0;
     AV_QSORT(prob_table, size, PTable, compare_by_prob);
 
-    for (times = 0; times <= 16; times++) {
+    for (times = 0; times <= maxLength; times++) {
         to->nitems = 0;
         to->item_idx[0] = 0;
 
         j = 0;
         k = 0;
 
-        if (times < 16) {
+        if (times < maxLength) {
             i = 0;
         }
         while (i < size || j + 1 < from->nitems) {
@@ -144,7 +144,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
     }
     val_counts[j].value = 256;
     val_counts[j].prob = 0;
-    ff_mjpegenc_huffman_compute_bits(val_counts, distincts, nval + 1);
+    ff_mjpegenc_huffman_compute_bits(val_counts, distincts, nval + 1, 16);
     AV_QSORT(distincts, nval, HuffTable, compare_by_length);
 
     memset(bits, 0, sizeof(bits[0]) * 17);

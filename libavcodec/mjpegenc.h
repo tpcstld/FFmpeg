@@ -39,8 +39,6 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
-// TODO(jjiang): Switch table_ids to an enum with 4 values.
-
 /**
  * Buffer of JPEG frame data.
  *
@@ -49,7 +47,8 @@
  * list buffer, as the exact size may vary.
  */
 typedef struct MJpegBuffer {
-    uint8_t table_ids[64 * 12]; ///< The Huffman table associated with the data.
+    // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
+    uint8_t table_ids[64 * 12]; ///< The Huffman table id associated with the data.
     uint8_t codes[64 * 12];     ///< The exponents.
     uint16_t mants[64 * 12];    ///< The mantissas.
     int ncode;                  ///< Number of current entries in this buffer.

@@ -55,13 +55,40 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     s->min_qcoeff=-1023;
     s->max_qcoeff= 1023;
 
-    /* buffers start out empty */
+    if (s->huffman == 1) {
+        // Build default Huffman tables.
+        ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
+                                     m->huff_code_dc_luminance,
+                                     avpriv_mjpeg_bits_dc_luminance,
+                                     avpriv_mjpeg_val_dc);
+        ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
+                                     m->huff_code_dc_chrominance,
+                                     avpriv_mjpeg_bits_dc_chrominance,
+                                     avpriv_mjpeg_val_dc);
+        ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
+                                     m->huff_code_ac_luminance,
+                                     avpriv_mjpeg_bits_ac_luminance,
+                                     avpriv_mjpeg_val_ac_luminance);
+        ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
+                                     m->huff_code_ac_chrominance,
+                                     avpriv_mjpeg_bits_ac_chrominance,
+                                     avpriv_mjpeg_val_ac_chrominance);
+
+        init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
+        init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
+        s->intra_ac_vlc_length      =
+        s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
+        s->intra_chroma_ac_vlc_length      =
+        s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
+    } else {
+        s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
+        s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
+    }
+
+    // Buffers start out empty, may never be used if using default Huffman.
     m->buffer = NULL;
     m->buffer_last = NULL;
     m->error = 0;
-
-    s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
-    s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
 
     s->mjpeg_ctx = m;
     return 0;
@@ -191,9 +218,9 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
 
     /* AC coefs */
 
+    run = 0;
     last_index = s->block_last_index[n];
 
-    run = 0;
     for(i=1;i<=last_index;i++) {
         j = s->intra_scantable.permutated[i];
         val = block[j];

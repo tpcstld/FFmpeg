@@ -26,7 +26,24 @@
 #include "libavutil/error.h"
 #include "mjpegenc_huffman.h"
 
-int compare_by_prob(const void *a, const void *b) {
+typedef struct PTable {
+    int value;
+    int prob;
+} PTable;
+
+typedef struct List {
+    int nitems;             // number of items in item_idx and probability      ex. 4
+    int item_idx[515];      // index range on the actual items                  0, 2, 5, 9, 13
+    int probability[514];   // probability of each item                         3, 8, 18, 46
+    int items[257 * 16];    // chain of all items                               A, B, A, B, C, A, B, C, D, C, D, D, E
+} List;
+
+typedef struct HuffTable {
+    int code;
+    int length;
+} HuffTable;
+
+static int compare_by_prob(const void *a, const void *b) {
     PTable a_val = *(PTable *)a;
     PTable b_val = *(PTable *)b;
     if (a_val.prob < b_val.prob) {
@@ -38,7 +55,7 @@ int compare_by_prob(const void *a, const void *b) {
     return 0;
 }
 
-int compare_by_length(const void *a, const void *b) {
+static int compare_by_length(const void *a, const void *b) {
     HuffTable a_val = *(HuffTable *)a;
     HuffTable b_val = *(HuffTable *)b;
     if (a_val.length < b_val.length) {
@@ -50,7 +67,7 @@ int compare_by_length(const void *a, const void *b) {
     return 0;
 }
 
-void buildHuffmanTree(PTable *probTable, HuffTable *distincts, int size) {
+void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
     List list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;
@@ -63,7 +80,7 @@ void buildHuffmanTree(PTable *probTable, HuffTable *distincts, int size) {
     from->nitems = 0;
     to->item_idx[0] = 0;
     from->item_idx[0] = 0;
-    qsort(probTable, size, sizeof(PTable), compare_by_prob);
+    qsort(prob_table, size, sizeof(PTable), compare_by_prob);
     for (times = 0; times <= 16; times++) {
         to->nitems = 0;
         to->item_idx[0] = 0;
@@ -79,10 +96,10 @@ void buildHuffmanTree(PTable *probTable, HuffTable *distincts, int size) {
             to->item_idx[to->nitems] = to->item_idx[to->nitems - 1];
             if (i < size &&
                 (j + 1 >= from->nitems ||
-                 probTable[i].prob <
+                 prob_table[i].prob <
                      from->probability[j] + from->probability[j + 1])) {
-                to->items[to->item_idx[to->nitems]++] = probTable[i].value;
-                to->probability[to->nitems - 1] = probTable[i].prob;
+                to->items[to->item_idx[to->nitems]++] = prob_table[i].value;
+                to->probability[to->nitems - 1] = prob_table[i].prob;
                 ++i;
             } else {
                 for (k = from->item_idx[j]; k < from->item_idx[j + 2]; ++k) {
@@ -142,7 +159,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
     }
     val_counts[j].value = 256;
     val_counts[j].prob = 0;
-    buildHuffmanTree(val_counts, distincts, nval + 1);
+    ff_mjpegenc_huffman_compute_bits(val_counts, distincts, nval + 1);
     qsort(distincts, nval, sizeof(HuffTable), compare_by_length);
 
     memset(bits, 0, sizeof(bits[0]) * 17);

@@ -55,35 +55,30 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     s->min_qcoeff=-1023;
     s->max_qcoeff= 1023;
 
-    if (s->huffman == 1) {
-        // Build default Huffman tables.
-        ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
-                                     m->huff_code_dc_luminance,
-                                     avpriv_mjpeg_bits_dc_luminance,
-                                     avpriv_mjpeg_val_dc);
-        ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
-                                     m->huff_code_dc_chrominance,
-                                     avpriv_mjpeg_bits_dc_chrominance,
-                                     avpriv_mjpeg_val_dc);
-        ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
-                                     m->huff_code_ac_luminance,
-                                     avpriv_mjpeg_bits_ac_luminance,
-                                     avpriv_mjpeg_val_ac_luminance);
-        ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
-                                     m->huff_code_ac_chrominance,
-                                     avpriv_mjpeg_bits_ac_chrominance,
-                                     avpriv_mjpeg_val_ac_chrominance);
+    // Build default Huffman tables.
+    ff_mjpeg_build_huffman_codes(m->huff_size_dc_luminance,
+                                 m->huff_code_dc_luminance,
+                                 avpriv_mjpeg_bits_dc_luminance,
+                                 avpriv_mjpeg_val_dc);
+    ff_mjpeg_build_huffman_codes(m->huff_size_dc_chrominance,
+                                 m->huff_code_dc_chrominance,
+                                 avpriv_mjpeg_bits_dc_chrominance,
+                                 avpriv_mjpeg_val_dc);
+    ff_mjpeg_build_huffman_codes(m->huff_size_ac_luminance,
+                                 m->huff_code_ac_luminance,
+                                 avpriv_mjpeg_bits_ac_luminance,
+                                 avpriv_mjpeg_val_ac_luminance);
+    ff_mjpeg_build_huffman_codes(m->huff_size_ac_chrominance,
+                                 m->huff_code_ac_chrominance,
+                                 avpriv_mjpeg_bits_ac_chrominance,
+                                 avpriv_mjpeg_val_ac_chrominance);
 
-        init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
-        init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
-        s->intra_ac_vlc_length      =
-        s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
-        s->intra_chroma_ac_vlc_length      =
-        s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
-    } else {
-        s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
-        s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
-    }
+    init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
+    init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
+    s->intra_ac_vlc_length      =
+    s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
+    s->intra_chroma_ac_vlc_length      =
+    s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
     // Buffers start out empty, may never be used if using default Huffman.
     m->buffer = NULL;

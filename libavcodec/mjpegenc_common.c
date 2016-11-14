@@ -482,9 +482,10 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     if (s->huffman == 2) {
         ff_mjpeg_build_optimal_huffman(m);
 
+        // Replace the VLCs with the optimal ones.
+        // The default ones were used for trellis during quantization.
         init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
         init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
-        av_assert0(!s->intra_ac_vlc_length);
         s->intra_ac_vlc_length      =
         s->intra_ac_vlc_last_length = m->uni_ac_vlc_len;
         s->intra_chroma_ac_vlc_length      =
@@ -497,11 +498,6 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     if (m->error < 0) {
         ret = m->error;
         return ret;
-    }
-
-    if (s->huffman == 2) {
-        s->intra_ac_vlc_length = s->intra_ac_vlc_last_length = NULL;
-        s->intra_chroma_ac_vlc_length = s->intra_chroma_ac_vlc_last_length = NULL;
     }
 
     ret = ff_mpv_reallocate_putbitbuffer(s, put_bits_count(&s->pb) / 8 + 100,

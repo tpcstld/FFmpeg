@@ -415,7 +415,7 @@ void ff_mjpeg_escape_FF(PutBitContext *pb, int start)
 }
 
 static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
-    int i, ret;
+    int i, j, ret, is_luminance;
     MJpegValue* current;
 
     MJpegEncHuffmanContext dc_luminance_ctx;
@@ -427,13 +427,16 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
     ff_mjpeg_encode_huffman_init(&ac_luminance_ctx);
     ff_mjpeg_encode_huffman_init(&ac_chrominance_ctx);
     for (current = m->buffer; current; current = current->next) {
-        MJpegEncHuffmanContext *dc_ctx = current->n < 4 ? &dc_luminance_ctx : &dc_chrominance_ctx;
-        MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
+        j = 0;
+        for(i = 0; i < current->nblocks; i++) {
+            is_luminance = current->is_luminance_bits[i / 8] & (1 << (i % 8));
+            MJpegEncHuffmanContext *ctx = is_luminance ? &dc_luminance_ctx : &dc_chrominance_ctx;
+            MJpegEncHuffmanContext *ac_ctx = is_luminance ? &ac_luminance_ctx : &ac_chrominance_ctx;
 
-        for(i = 0; i < current->ncode; i++) {
-            ff_mjpeg_encode_huffman_increment(
-                current->is_dc_bits[i / 8] & (1 << (i % 8)) ? dc_ctx : ac_ctx,
-                current->codes[i]);
+            for (; j < current->block_ends[i]; ++j) {
+                ff_mjpeg_encode_huffman_increment(ctx, current->codes[i]);
+                ctx = ac_ctx;
+            }
         }
     }
 
@@ -474,7 +477,6 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
     PutBitContext *pbc = &s->pb;
     int mb_y = s->mb_y - !s->mb_x;
     int ret;
-    MJpegValue* current;
     MJpegContext *m;
 
     m = s->mjpeg_ctx;

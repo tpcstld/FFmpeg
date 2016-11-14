@@ -40,13 +40,16 @@
 #include "put_bits.h"
 
 typedef struct MJpegValue {
-    // Store one macroblock's worth of storage
-    uint16_t mants[64 * 10];
-    uint8_t codes[64 * 10];
-    uint8_t is_dc_bits[64 * 10 / 8];
-    int ncode;
-    // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
-    int n;
+    // Store at least one macroblock's worth of codes, and at most 128 blocks.
+    // Values to Huffman-code
+    uint8_t codes[64 * 12];
+    // Allow at most 128 blocks to store whether they're luminance
+    uint8_t is_luminance_bits[128 / 8];
+    // Mantissas, if the values have nbits (low 4 bits) != 0
+    uint16_t mants[64 * 12];
+    // The ending indices for the codes of each of up to 128 blocks.
+    uint16_t block_ends[128];
+    uint8_t nblocks;
     struct MJpegValue *next;
 } MJpegValue;
 

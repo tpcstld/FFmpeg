@@ -109,7 +109,7 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 
 // TODO(jjang): Test
 void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
-    int i, nbits, code;
+    int i, j, nbits, code;
     MJpegContext *m;
     uint8_t *huff_size_ac, *huff_size;
     uint16_t *huff_code_ac, *huff_code;
@@ -124,28 +124,30 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
 
         ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
 
-        if (current->n < 4) {
-            huff_size = m->huff_size_dc_luminance;
-            huff_code = m->huff_code_dc_luminance;
-            huff_size_ac = m->huff_size_ac_luminance;
-            huff_code_ac = m->huff_code_ac_luminance;
-        } else {
-            huff_size = m->huff_size_dc_chrominance;
-            huff_code = m->huff_code_dc_chrominance;
-            huff_size_ac = m->huff_size_ac_chrominance;
-            huff_code_ac = m->huff_code_ac_chrominance;
-        }
-
-        for (i = 0; i < current->ncode; ++i) {
-            code = current->codes[i];
-            nbits = code & 0xf;
-            put_bits(&s->pb, huff_size[code], huff_code[code]);
-            if (nbits != 0) {
-                put_sbits(&s->pb, nbits, current->mants[i]);
+        j = 0;
+        for (i = 0; i < current->nblocks; ++i) {
+            if (current->is_luminance_bits[i / 8] & (1 << (i % 8))) {
+                huff_size = m->huff_size_dc_luminance;
+                huff_code = m->huff_code_dc_luminance;
+                huff_size_ac = m->huff_size_ac_luminance;
+                huff_code_ac = m->huff_code_ac_luminance;
+            } else {
+                huff_size = m->huff_size_dc_chrominance;
+                huff_code = m->huff_code_dc_chrominance;
+                huff_size_ac = m->huff_size_ac_chrominance;
+                huff_code_ac = m->huff_code_ac_chrominance;
             }
 
-            huff_size = huff_size_ac;
-            huff_code = huff_code_ac;
+            for (; j < current->block_ends[i]; ++j) {
+                code = current->codes[j];
+                nbits = code & 0xf;
+                put_bits(&s->pb, huff_size[code], huff_code[code]);
+                if (nbits != 0) {
+                    put_sbits(&s->pb, nbits, current->mants[i]);
+                }
+                huff_size = huff_size_ac;
+                huff_code = huff_code_ac;
+            }
         }
 
         next = current->next;
@@ -157,16 +159,23 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     m->buffer_last = NULL;
 }
 
-static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
-{
+__attribute__((optimize("O0")))
+static inline void ff_mjpeg_encode_code(MJpegValue *m, int code) {
+    uint16_t *last_index = &m->block_ends[m->nblocks-1];
+    m->codes[(*last_index)++] = code;
+}
+
+__attribute__((optimize("O0")))
+static void ff_mjpeg_encode_coef(MJpegValue *m, int val, int run) {
     int mant, code;
-    MJpegValue *m = s->buffer_last;
-    av_assert0(m->ncode >= 0);
-    av_assert0(m->ncode < sizeof(m->codes) / sizeof(m->codes[0]));
+    uint16_t last_index = m->block_ends[m->nblocks-1];
+    av_assert0(m->nblocks > 0);
+    av_assert0(m->nblocks <= sizeof(m->block_ends) / sizeof(m->block_ends[0]));
+    av_assert0(last_index <= sizeof(m->codes) / sizeof(m->codes[0]));
 
     if (val == 0) {
         av_assert0(run == 0);
-        m->codes[m->ncode++] = 0;
+        ff_mjpeg_encode_code(m, 0);
     } else {
         mant = val;
         if (val < 0) {
@@ -176,8 +185,8 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
 
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
-        m->mants[m->ncode] = mant;
-        m->codes[m->ncode++] = code;
+        m->mants[last_index] = mant;
+        ff_mjpeg_encode_code(m, code);
     }
 }
 
@@ -188,16 +197,16 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     MJpegContext *m = s->mjpeg_ctx;
     MJpegValue* buffer_block = m->buffer_last;
 
-    if (buffer_block == NULL || buffer_block->ncode + 64 >
+    if (buffer_block == NULL || buffer_block->block_ends[buffer_block->nblocks-1] + 64 >
             sizeof(buffer_block->codes) / sizeof(buffer_block->codes[0])) {
         buffer_block = av_malloc(sizeof(MJpegValue));
         if (!buffer_block) {
             return AVERROR(ENOMEM);
         }
-        memset(buffer_block->is_dc_bits, 0, sizeof(buffer_block->is_dc_bits));
 
         buffer_block->next = NULL;
-        buffer_block->ncode = 0;
+        buffer_block->nblocks = 0;
+        memset(buffer_block->is_luminance_bits, 0, sizeof(buffer_block->is_luminance_bits));
 
         /* Add to end of buffer */
         if (!m->buffer) {
@@ -208,15 +217,19 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             m->buffer_last = buffer_block;
         }
     }
+    buffer_block->block_ends[buffer_block->nblocks] =
+        buffer_block->nblocks == 0 ? 0 : buffer_block->block_ends[buffer_block->nblocks-1];
+    ++buffer_block->nblocks;
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);
     dc = block[0]; /* overflow is impossible */
     val = dc - s->last_dc[component];
 
-    buffer_block->n = n;
-    buffer_block->is_dc_bits[buffer_block->ncode / 8] |= 1 << (buffer_block->ncode % 8);
-    ff_mjpeg_encode_coef(m, val, 0);
+    if (n < 4) {
+        buffer_block->is_luminance_bits[buffer_block->nblocks / 8] |= 1 << (buffer_block->nblocks % 8);
+    }
+    ff_mjpeg_encode_coef(buffer_block, val, 0);
 
     s->last_dc[component] = dc;
 
@@ -233,17 +246,17 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             run++;
         } else {
             while (run >= 16) {
-                buffer_block->codes[buffer_block->ncode++] = 0xf0;
+                ff_mjpeg_encode_code(buffer_block, 0xf0);
                 run -= 16;
             }
-            ff_mjpeg_encode_coef(m, val, run);
+            ff_mjpeg_encode_coef(buffer_block, val, run);
             run = 0;
         }
     }
 
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
-        buffer_block->codes[buffer_block->ncode++] = 0;
+        ff_mjpeg_encode_code(buffer_block, 0);
 
     return 0;
 }

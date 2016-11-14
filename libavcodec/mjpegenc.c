@@ -157,7 +157,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
     int mant, code;
     MJpegValue *m = s->buffer_last;
     av_assert0(m->ncode >= 0);
-    av_assert0(m->ncode < 64);
+    av_assert0(m->ncode < sizeof(m->codes) / sizeof(m->codes[0]));
 
     if (val == 0) {
         av_assert0(run == 0);
@@ -184,7 +184,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     MJpegValue* buffer_block = m->buffer_last;
 
     if (buffer_block == NULL || buffer_block->ncode + 64
-            < sizeof(buffer_block->codes) / sizeof(buffer_block->codes[0])) {
+            > sizeof(buffer_block->codes) / sizeof(buffer_block->codes[0])) {
         buffer_block = av_malloc(sizeof(MJpegValue));
         if (!buffer_block) {
             return AVERROR(ENOMEM);

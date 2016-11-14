@@ -416,7 +416,7 @@ void ff_mjpeg_escape_FF(PutBitContext *pb, int start)
 
 static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
     int i, ret;
-    MJpegValue* current;
+    MJpegBuffer* current;
 
     MJpegEncHuffmanContext dc_luminance_ctx;
     MJpegEncHuffmanContext dc_chrominance_ctx;
@@ -483,7 +483,7 @@ int ff_mjpeg_encode_stuffing(MpegEncContext *s)
         ff_mjpeg_build_optimal_huffman(m);
 
         // Replace the VLCs with the optimal ones.
-        // The default ones were used for trellis during quantization.
+        // The default ones may be used for trellis during quantization.
         init_uni_ac_vlc(m->huff_size_ac_luminance,   m->uni_ac_vlc_len);
         init_uni_ac_vlc(m->huff_size_ac_chrominance, m->uni_chroma_ac_vlc_len);
         s->intra_ac_vlc_length      =

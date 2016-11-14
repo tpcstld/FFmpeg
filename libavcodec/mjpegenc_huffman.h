@@ -1,6 +1,6 @@
 /*
  * MJPEG encoder
- * Copyright (c) 2016 William Ma, Ted Ying
+ * Copyright (c) 2016 William Ma, Ted Ying, Jerry Jiang
  *
  * This file is part of FFmpeg.
  *
@@ -31,6 +31,7 @@ typedef struct MJpegEncHuffmanContext {
     int val_count[256];
 } MJpegEncHuffmanContext;
 
+// Uses the package merge algorithm to compute the Huffman table.
 void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s);
 static inline void ff_mjpeg_encode_huffman_increment(
         MJpegEncHuffmanContext *s, uint8_t val) {

@@ -1,6 +1,6 @@
 /*
  * MJPEG encoder
- * Copyright (c) 2016 William Ma, Ted Ying
+ * Copyright (c) 2016 William Ma, Ted Ying, Jerry Jiang
  *
  * This file is part of FFmpeg.
  *

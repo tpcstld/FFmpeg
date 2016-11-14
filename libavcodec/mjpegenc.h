@@ -39,15 +39,14 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
-typedef struct MJpegValue {
-    // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
-    uint8_t table_ids[64 * 12];
-    uint8_t codes[64 * 12];
-    uint16_t mants[64 * 12];
-    // Number of entries in this MJpegValue currently
-    int ncode;
-    struct MJpegValue *next;
-} MJpegValue;
+// Buffer of coefficients.
+typedef struct MJpegBuffer {
+    uint8_t table_ids[64 * 12]; // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
+    uint8_t codes[64 * 12];     // The exponents.
+    uint16_t mants[64 * 12];    // The mantissas.
+    int ncode;                  // Number of current entries in this buffer.
+    struct MJpegBuffer *next;
+} MJpegBuffer;
 
 typedef struct MJpegContext {
     uint8_t huff_size_dc_luminance[12]; //FIXME use array [3] instead of lumi / chroma, for easier addressing
@@ -77,8 +76,8 @@ typedef struct MJpegContext {
     uint8_t bits_ac_chrominance[17];
     uint8_t val_ac_chrominance[256];
 
-    MJpegValue *buffer;
-    MJpegValue *buffer_last;
+    MJpegBuffer *buffer;
+    MJpegBuffer *buffer_last;
     int error;
 } MJpegContext;
 

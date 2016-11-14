@@ -52,7 +52,7 @@ static int compare_by_length(const void *a, const void *b) {
 }
 
 void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
-    List list_a, list_b, *to = &list_a, *from = &list_b, *temp;
+    PackageMergerList list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;
 
@@ -65,6 +65,7 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     to->item_idx[0] = 0;
     from->item_idx[0] = 0;
     AV_QSORT(prob_table, size, PTable, compare_by_prob);
+
     for (times = 0; times <= 16; times++) {
         to->nitems = 0;
         to->item_idx[0] = 0;

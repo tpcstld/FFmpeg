@@ -46,12 +46,12 @@ typedef struct PTable {
     int prob;
 } PTable;
 
-typedef struct List {
+typedef struct PackageMergerList {
     int nitems;             // number of items in item_idx and probability      ex. 4
     int item_idx[515];      // index range on the actual items                  0, 2, 5, 9, 13
     int probability[514];   // probability of each item                         3, 8, 18, 46
     int items[257 * 16];    // chain of all items                               A, B, A, B, C, A, B, C, D, C, D, D, E
-} List;
+} PackageMergerList;
 
 typedef struct HuffTable {
     int code;

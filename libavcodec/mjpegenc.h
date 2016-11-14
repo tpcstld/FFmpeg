@@ -40,11 +40,12 @@
 #include "put_bits.h"
 
 typedef struct MJpegValue {
+    // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
+    uint8_t table_ids[64];
     uint8_t codes[64];
     uint16_t mants[64];
+    // Number of entries in this MJpegValue currently
     int ncode;
-    // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
-    int n;
     struct MJpegValue *next;
 } MJpegValue;
 

@@ -422,16 +422,16 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
     MJpegEncHuffmanContext dc_chrominance_ctx;
     MJpegEncHuffmanContext ac_luminance_ctx;
     MJpegEncHuffmanContext ac_chrominance_ctx;
-    ff_mjpeg_encode_huffman_init(&dc_luminance_ctx);
-    ff_mjpeg_encode_huffman_init(&dc_chrominance_ctx);
-    ff_mjpeg_encode_huffman_init(&ac_luminance_ctx);
-    ff_mjpeg_encode_huffman_init(&ac_chrominance_ctx);
+    MJpegEncHuffmanContext *ctx[4] = {&dc_luminance_ctx,
+                                      &dc_chrominance_ctx,
+                                      &ac_luminance_ctx,
+                                      &ac_chrominance_ctx};
+    for (i = 0; i < 4; ++i) {
+        ff_mjpeg_encode_huffman_init(ctx[i]);
+    }
     for (current = m->buffer; current; current = current->next) {
-        MJpegEncHuffmanContext *dc_ctx = current->n < 4 ? &dc_luminance_ctx : &dc_chrominance_ctx;
-        MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
-
         for(i = 0; i < current->ncode; i++) {
-            ff_mjpeg_encode_huffman_increment(i == 0 ? dc_ctx : ac_ctx, current->codes[i]);
+            ff_mjpeg_encode_huffman_increment(ctx[current->table_ids[i]], current->codes[i]);
         }
     }
 

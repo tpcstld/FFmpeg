@@ -107,16 +107,19 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
     av_freep(&s->mjpeg_ctx);
 }
 
-// TODO(jjang): Test
 void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
-    int i, nbits, code;
-    MJpegContext *m;
-    uint8_t *huff_size_ac, *huff_size;
-    uint16_t *huff_code_ac, *huff_code;
+    int i, nbits, code, table_id;
+    MJpegContext *m = s->mjpeg_ctx;
+    uint8_t *huff_size[4] = {m->huff_size_dc_luminance,
+                             m->huff_size_dc_chrominance,
+                             m->huff_size_ac_luminance,
+                             m->huff_size_ac_chrominance};
+    uint16_t *huff_code[4] = {m->huff_code_dc_luminance,
+                              m->huff_code_dc_chrominance,
+                              m->huff_code_ac_luminance,
+                              m->huff_code_ac_chrominance};
     MJpegValue* current;
     MJpegValue* next;
-
-    m = s->mjpeg_ctx;
 
     for (current = m->buffer; current;) {
         int size_increase =  s->avctx->internal->byte_buffer_size/4
@@ -124,28 +127,14 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
 
         ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
 
-        if (current->n < 4) {
-            huff_size = m->huff_size_dc_luminance;
-            huff_code = m->huff_code_dc_luminance;
-            huff_size_ac = m->huff_size_ac_luminance;
-            huff_code_ac = m->huff_code_ac_luminance;
-        } else {
-            huff_size = m->huff_size_dc_chrominance;
-            huff_code = m->huff_code_dc_chrominance;
-            huff_size_ac = m->huff_size_ac_chrominance;
-            huff_code_ac = m->huff_code_ac_chrominance;
-        }
-
         for (i = 0; i < current->ncode; ++i) {
             code = current->codes[i];
             nbits = code & 0xf;
-            put_bits(&s->pb, huff_size[code], huff_code[code]);
+            table_id = current->table_ids[i];
+            put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
             if (nbits != 0) {
                 put_sbits(&s->pb, nbits, current->mants[i]);
             }
-
-            huff_size = huff_size_ac;
-            huff_code = huff_code_ac;
         }
 
         next = current->next;
@@ -157,7 +146,13 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     m->buffer_last = NULL;
 }
 
-static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
+static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code) {
+    MJpegValue *m = s->buffer_last;
+    m->table_ids[m->ncode] = table_id;
+    m->codes[m->ncode++] = code;
+}
+
+static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int run)
 {
     int mant, code;
     MJpegValue *m = s->buffer_last;
@@ -166,7 +161,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
 
     if (val == 0) {
         av_assert0(run == 0);
-        m->codes[m->ncode++] = 0;
+        ff_mjpeg_encode_code(s, table_id, 0);
     } else {
         mant = val;
         if (val < 0) {
@@ -177,13 +172,13 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, int val, int run)
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
         m->mants[m->ncode] = mant;
-        m->codes[m->ncode++] = code;
+        ff_mjpeg_encode_code(s, table_id, code);
     }
 }
 
 static int encode_block(MpegEncContext *s, int16_t *block, int n)
 {
-    int i, j;
+    int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
     MJpegValue* buffer_block;
@@ -207,11 +202,11 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);
+    table_id = (n < 4 ? 0 : 1);
     dc = block[0]; /* overflow is impossible */
     val = dc - s->last_dc[component];
 
-    buffer_block->n = n;
-    ff_mjpeg_encode_coef(m, val, 0);
+    ff_mjpeg_encode_coef(m, table_id, val, 0);
 
     s->last_dc[component] = dc;
 
@@ -219,6 +214,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
 
     run = 0;
     last_index = s->block_last_index[n];
+    table_id |= 2;
 
     for(i=1;i<=last_index;i++) {
         j = s->intra_scantable.permutated[i];
@@ -228,17 +224,17 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             run++;
         } else {
             while (run >= 16) {
-                m->buffer_last->codes[m->buffer_last->ncode++] = 0xf0;
+                ff_mjpeg_encode_code(m, table_id, 0xf0);
                 run -= 16;
             }
-            ff_mjpeg_encode_coef(m, val, run);
+            ff_mjpeg_encode_coef(m, table_id, val, run);
             run = 0;
         }
     }
 
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
-        m->buffer_last->codes[m->buffer_last->ncode++] = 0;
+        ff_mjpeg_encode_code(m, table_id, 0);
 
     return 0;
 }

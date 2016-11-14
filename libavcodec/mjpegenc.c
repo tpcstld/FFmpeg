@@ -181,23 +181,26 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
-    MJpegValue* buffer_block;
+    MJpegValue* buffer_block = m->buffer_last;
 
-    buffer_block = av_malloc(sizeof(MJpegValue));
-    if (!buffer_block) {
-        return AVERROR(ENOMEM);
-    }
+    if (buffer_block == NULL || buffer_block->ncode + 64
+            < sizeof(buffer_block->codes) / sizeof(buffer_block->codes[0])) {
+        buffer_block = av_malloc(sizeof(MJpegValue));
+        if (!buffer_block) {
+            return AVERROR(ENOMEM);
+        }
 
-    buffer_block->next = NULL;
-    buffer_block->ncode = 0;
+        buffer_block->next = NULL;
+        buffer_block->ncode = 0;
 
-    /* Add to end of buffer */
-    if (!m->buffer) {
-        m->buffer = buffer_block;
-        m->buffer_last = buffer_block;
-    } else {
-        m->buffer_last->next = buffer_block;
-        m->buffer_last = buffer_block;
+        /* Add to end of buffer */
+        if (!m->buffer) {
+            m->buffer = buffer_block;
+            m->buffer_last = buffer_block;
+        } else {
+            m->buffer_last->next = buffer_block;
+            m->buffer_last = buffer_block;
+        }
     }
 
     /* DC coef */

@@ -39,6 +39,15 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
+// Buffer of coefficients.
+typedef struct MJpegBuffer {
+    uint8_t table_ids[64 * 12]; // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
+    uint8_t codes[64 * 12];     // The exponents.
+    uint16_t mants[64 * 12];    // The mantissas.
+    int ncode;                  // Number of current entries in this buffer.
+    struct MJpegBuffer *next;
+} MJpegBuffer;
+
 typedef struct MJpegContext {
     uint8_t huff_size_dc_luminance[12]; //FIXME use array [3] instead of lumi / chroma, for easier addressing
     uint16_t huff_code_dc_luminance[12];
@@ -49,6 +58,27 @@ typedef struct MJpegContext {
     uint16_t huff_code_ac_luminance[256];
     uint8_t huff_size_ac_chrominance[256];
     uint16_t huff_code_ac_chrominance[256];
+
+    // Storage for VLC (in MpegEncContext)
+    uint8_t uni_ac_vlc_len[64 * 64 * 2];
+    uint8_t uni_chroma_ac_vlc_len[64 * 64 * 2];
+
+    // All Huffman tables
+    // Default DC tables have exactly 12 values
+    uint8_t bits_dc_luminance[17];
+    uint8_t val_dc_luminance[12];
+    uint8_t bits_dc_chrominance[17];
+    uint8_t val_dc_chrominance[12];
+
+    // 8-bit JPEG has max 256 values
+    uint8_t bits_ac_luminance[17];
+    uint8_t val_ac_luminance[256];
+    uint8_t bits_ac_chrominance[17];
+    uint8_t val_ac_chrominance[256];
+
+    MJpegBuffer *buffer;
+    MJpegBuffer *buffer_last;
+    int error;
 } MJpegContext;
 
 static inline void put_marker(PutBitContext *p, enum JpegMarker code)
@@ -58,7 +88,8 @@ static inline void put_marker(PutBitContext *p, enum JpegMarker code)
 }
 
 int  ff_mjpeg_encode_init(MpegEncContext *s);
+void ff_mjpeg_encode_picture_frame(MpegEncContext *s);
 void ff_mjpeg_encode_close(MpegEncContext *s);
-void ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64]);
+int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64]);
 
 #endif /* AVCODEC_MJPEGENC_H */

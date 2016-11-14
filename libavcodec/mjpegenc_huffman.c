@@ -67,7 +67,7 @@ static int compare_by_length(const void *a, const void *b) {
     return 0;
 }
 
-void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
+static void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
     List list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;

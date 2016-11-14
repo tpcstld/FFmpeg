@@ -414,6 +414,14 @@ void ff_mjpeg_escape_FF(PutBitContext *pb, int start)
     }
 }
 
+/**
+ * Builds all 4 optimal Huffman tables.
+ *
+ * Uses the data stored in the JPEG buffer to compute the tables.
+ * Stores the Huffman tables in the bits_* and val_* arrays in the MJpegContext.
+ *
+ * @param m MJpegContext containing the JPEG buffer.
+ */
 static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
     int i, ret;
     MJpegBuffer* current;
@@ -466,6 +474,14 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
                                  m->val_ac_chrominance);
 }
 
+/**
+ * Writes the complete JPEG frame.
+ *
+ * Header + values + stuffing.
+ *
+ * @param s The MpegEncContext.
+ * @return int Error code, 0 if successful.
+ */
 int ff_mjpeg_encode_stuffing(MpegEncContext *s)
 {
     int i;

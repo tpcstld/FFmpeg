@@ -39,46 +39,58 @@
 #include "mpegvideo.h"
 #include "put_bits.h"
 
-// Buffer of coefficients.
+// TODO(jjiang): Switch table_ids to an enum with 4 values.
+
+/**
+ * Buffer of JPEG frame data.
+ *
+ * Optimal Huffman table generation requires the frame data to be loaded into
+ * a buffer so that the tables can be computed. The data is stored in a linked
+ * list buffer, as the exact size may vary.
+ */
 typedef struct MJpegBuffer {
-    uint8_t table_ids[64 * 12]; // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
-    uint8_t codes[64 * 12];     // The exponents.
-    uint16_t mants[64 * 12];    // The mantissas.
-    int ncode;                  // Number of current entries in this buffer.
-    struct MJpegBuffer *next;
+    uint8_t table_ids[64 * 12]; ///< The Huffman table associated with the data.
+    uint8_t codes[64 * 12];     ///< The exponents.
+    uint16_t mants[64 * 12];    ///< The mantissas.
+    int ncode;                  ///< Number of current entries in this buffer.
+    struct MJpegBuffer *next;   ///< The next struct in the linked list.
 } MJpegBuffer;
 
+/**
+ * Holds JPEG frame data and Huffman table data.
+ */
 typedef struct MJpegContext {
-    uint8_t huff_size_dc_luminance[12]; //FIXME use array [3] instead of lumi / chroma, for easier addressing
-    uint16_t huff_code_dc_luminance[12];
-    uint8_t huff_size_dc_chrominance[12];
-    uint16_t huff_code_dc_chrominance[12];
+    //FIXME use array [3] instead of lumi / chroma, for easier addressing
+    uint8_t huff_size_dc_luminance[12];     ///< DC luminance Huffman table size.
+    uint16_t huff_code_dc_luminance[12];    ///< DC luminance Huffman table codes.
+    uint8_t huff_size_dc_chrominance[12];   ///< DC chrominance Huffman table size.
+    uint16_t huff_code_dc_chrominance[12];  ///< DC chrominance Huffman table codes.
 
-    uint8_t huff_size_ac_luminance[256];
-    uint16_t huff_code_ac_luminance[256];
-    uint8_t huff_size_ac_chrominance[256];
-    uint16_t huff_code_ac_chrominance[256];
+    uint8_t huff_size_ac_luminance[256];    ///< AC luminance Huffman table size.
+    uint16_t huff_code_ac_luminance[256];   ///< AC luminance Huffman table codes.
+    uint8_t huff_size_ac_chrominance[256];  ///< AC chrominance Huffman table size.
+    uint16_t huff_code_ac_chrominance[256]; ///< AC chrominance Huffman table codes.
 
-    // Storage for VLC (in MpegEncContext)
+    /** Storage for AC luminance VLC (in MpegEncContext) */
     uint8_t uni_ac_vlc_len[64 * 64 * 2];
+    /** Storage for AC chrominance VLC (in MpegEncContext) */
     uint8_t uni_chroma_ac_vlc_len[64 * 64 * 2];
 
-    // All Huffman tables
     // Default DC tables have exactly 12 values
-    uint8_t bits_dc_luminance[17];
-    uint8_t val_dc_luminance[12];
-    uint8_t bits_dc_chrominance[17];
-    uint8_t val_dc_chrominance[12];
+    uint8_t bits_dc_luminance[17];   ///< DC luminance Huffman bits.
+    uint8_t val_dc_luminance[12];    ///< DC luminance Huffman values.
+    uint8_t bits_dc_chrominance[17]; ///< DC chrominance Huffman bits.
+    uint8_t val_dc_chrominance[12];  ///< DC chrominance Huffman values.
 
     // 8-bit JPEG has max 256 values
-    uint8_t bits_ac_luminance[17];
-    uint8_t val_ac_luminance[256];
-    uint8_t bits_ac_chrominance[17];
-    uint8_t val_ac_chrominance[256];
+    uint8_t bits_ac_luminance[17];   ///< AC luminance Huffman bits.
+    uint8_t val_ac_luminance[256];   ///< AC luminance Huffman values.
+    uint8_t bits_ac_chrominance[17]; ///< AC chrominance Huffman bits.
+    uint8_t val_ac_chrominance[256]; ///< AC chrominance Huffman values.
 
-    MJpegBuffer *buffer;
-    MJpegBuffer *buffer_last;
-    int error;
+    MJpegBuffer *buffer;             ///< JPEG buffer linked list head.
+    MJpegBuffer *buffer_last;        ///< JPEG buffer linked list tail.
+    int error;                       ///< Error code.
 } MJpegContext;
 
 static inline void put_marker(PutBitContext *p, enum JpegMarker code)

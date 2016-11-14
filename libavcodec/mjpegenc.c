@@ -105,6 +105,11 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
     av_freep(&s->mjpeg_ctx);
 }
 
+/**
+ * Encodes and outputs the entire frame in the JPEG format.
+ *
+ * @param s The MpegEncContext.
+ */
 void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     int i, nbits, code, table_id;
     MJpegContext *m = s->mjpeg_ctx;
@@ -144,12 +149,27 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
     m->buffer_last = NULL;
 }
 
+/**
+ * Add code and table_id to the JPEG buffer.
+ *
+ * @param s The MJpegContext which contains the JPEG buffer.
+ * @param table_id Which Huffman table the code belongs to.
+ * @param code The encoded exponent of the coefficients and the run-bits.
+ */
 static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code) {
     MJpegBuffer *m = s->buffer_last;
     m->table_ids[m->ncode] = table_id;
     m->codes[m->ncode++] = code;
 }
 
+/**
+ * Add the coefficient's data to the JPEG buffer.
+ *
+ * @param s The MJpegContext which contains the JPEG buffer.
+ * @param table_id Which Huffman table the code belongs to.
+ * @param val The coefficient.
+ * @param run The run-bits.
+ */
 static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int run)
 {
     int mant, code;
@@ -174,6 +194,14 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
     }
 }
 
+/**
+ * Add the block's data into the JPEG buffer.
+ *
+ * @param s The MJpegEncContext that contains the JPEG buffer.
+ * @param block The block.
+ * @param n The block's index or number.
+ * @return int Return code, 0 if succeeded.
+ */
 static int encode_block(MpegEncContext *s, int16_t *block, int n)
 {
     int i, j, table_id;

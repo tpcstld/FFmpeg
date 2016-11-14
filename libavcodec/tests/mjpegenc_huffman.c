@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 	expected[4].length = 1;
 
 	//Build optimal huffman tree
-	buildHuffmanTree(val_counts, distincts, 5);
+	ff_mjpegenc_huffman_compute_bits(val_counts, distincts, 5);
 
 	printf("Test");
 	for (i = 0; i < 5; i++) {

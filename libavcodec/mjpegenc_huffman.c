@@ -26,23 +26,6 @@
 #include "libavutil/error.h"
 #include "mjpegenc_huffman.h"
 
-typedef struct PTable {
-    int value;
-    int prob;
-} PTable;
-
-typedef struct List {
-    int nitems;             // number of items in item_idx and probability      ex. 4
-    int item_idx[515];      // index range on the actual items                  0, 2, 5, 9, 13
-    int probability[514];   // probability of each item                         3, 8, 18, 46
-    int items[257 * 16];    // chain of all items                               A, B, A, B, C, A, B, C, D, C, D, D, E
-} List;
-
-typedef struct HuffTable {
-    int code;
-    int length;
-} HuffTable;
-
 static int compare_by_prob(const void *a, const void *b) {
     PTable a_val = *(PTable *)a;
     PTable b_val = *(PTable *)b;
@@ -67,7 +50,7 @@ static int compare_by_length(const void *a, const void *b) {
     return 0;
 }
 
-static void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
+void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size) {
     List list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;

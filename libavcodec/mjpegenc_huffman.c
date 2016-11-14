@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h> // TODO(yingted): Remove malloc
 #include "libavutil/error.h"
 #include "mjpegenc_huffman.h"
@@ -51,12 +52,13 @@ void buildHuffmanTree(PTable *probTable, HuffTable* distincts, int size) {
 
 	int nbits[257] = {0};
 
+	int min;
+
 	to->nitems = 0;
 	from->nitems = 0;
 	to->item_idx[0] = 0;
 	from->item_idx[0] = 0;
 	qsort(probTable, size, sizeof(PTable), compare_by_prob);
-
 	for (times = 0; times <= 16; times++) {
 		to->nitems = 0;
 		to->item_idx[0] = 0;
@@ -83,12 +85,14 @@ void buildHuffmanTree(PTable *probTable, HuffTable* distincts, int size) {
 		temp = to;
 		to = from;
 		from = temp;
+
+		printf("round end\n");
 	}
 
-	for (i = 0; i < from->item_idx[size - 1]; ++i) {
+	min = (size - 1 < from->nitems) ? size - 1 : from->nitems;
+	for (i = 0; i < from->item_idx[min]; ++i) {
 		++nbits[from->items[i]];
 	}
-
 	// we don't want to return the 256 bit count (it was just in here to prevent all 1s encoding)
 	j = 0;
 	for (i = 0; i < 256; i++) {
@@ -98,7 +102,6 @@ void buildHuffmanTree(PTable *probTable, HuffTable* distincts, int size) {
 			++j;
 		}
 	}
-
 	free(to);
 	free(from);
 }
@@ -122,49 +125,28 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s,
         return AVERROR(EINVAL);
     }
 
-#if 1
 	val_counts = malloc((nval + 1)*sizeof(PTable));
 	j = 0;
-	for (i = 0; i < nval; i++) {
+	for (i = 0; i < 256; ++i) {
 		if (s->val_count[i]) {
 			val_counts[j].value = i;
 			val_counts[j].prob = s->val_count[i];
+			++j;
 		}
 	}
 	val_counts[j].value = 256;
 	val_counts[j].prob = 0;
 	distincts = malloc(nval*sizeof(HuffTable));
 	buildHuffmanTree(val_counts, distincts, nval + 1);
-
 	qsort(distincts, nval, sizeof(HuffTable), compare_by_length);
-#endif
 
-    // TODO(yingted): Use package merge results
     memset(bits, 0, sizeof(bits[0]) * 17);
-#if 1
     for (i = 0; i < nval; i++) {
 		val[i] = distincts[i].code;
 		++bits[distincts[i].length];
 	}
 
-    // bits[8] = nval > 255 ? 255 : nval;
-    // bits[9] = nval - bits[8];
-    // nval = 0;
-    // for (i = 0; i < 256; ++i) {
-    //     if (s->val_count[i])
-    //         val[nval++] = i;
-    // }
-#else
-    nval = max_nval;
-    bits[8] = nval > 255 ? 255 : nval;
-    bits[9] = nval - bits[8];
-    for (i = 0; i < 256; ++i) {
-        val[i] = i;
-    }
-#endif
-
 	free(val_counts);
 	free(distincts);
-
     return 0;
 }

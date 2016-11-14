@@ -21,9 +21,8 @@
 
 #include <string.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <assert.h>
-#include <stdlib.h>  // TODO(yingted): Remove malloc
+#include <stdlib.h>
 #include "libavutil/error.h"
 #include "mjpegenc_huffman.h"
 
@@ -52,9 +51,7 @@ int compare_by_length(const void *a, const void *b) {
 }
 
 void buildHuffmanTree(PTable *probTable, HuffTable *distincts, int size) {
-    List *to = malloc(sizeof(List));
-    List *from = malloc(sizeof(List));
-    List *temp;
+    List list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;
 
@@ -115,8 +112,6 @@ void buildHuffmanTree(PTable *probTable, HuffTable *distincts, int size) {
             ++j;
         }
     }
-    free(to);
-    free(from);
 }
 
 void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s) {
@@ -127,8 +122,8 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
                                   uint8_t val[], int max_nval) {
     int i, j;
     int nval = 0;
-    PTable *val_counts;
-    HuffTable *distincts;
+    PTable val_counts[257];
+    HuffTable distincts[256];
 
     for (i = 0; i < 256; ++i) {
         if (s->val_count[i]) ++nval;
@@ -137,7 +132,6 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
         return AVERROR(EINVAL);
     }
 
-    val_counts = malloc((nval + 1) * sizeof(PTable));
     j = 0;
     for (i = 0; i < 256; ++i) {
         if (s->val_count[i]) {
@@ -148,7 +142,6 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
     }
     val_counts[j].value = 256;
     val_counts[j].prob = 0;
-    distincts = malloc(nval * sizeof(HuffTable));
     buildHuffmanTree(val_counts, distincts, nval + 1);
     qsort(distincts, nval, sizeof(HuffTable), compare_by_length);
 
@@ -158,7 +151,5 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
         ++bits[distincts[i].length];
     }
 
-    free(val_counts);
-    free(distincts);
     return 0;
 }

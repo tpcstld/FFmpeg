@@ -27,6 +27,13 @@
 #include "libavutil/qsort.h"
 #include "mjpegenc_huffman.h"
 
+/**
+ * Comparison function for two PTables by prob
+ *
+ * @param a First PTable to compare
+ * @param b Second PTable to compare
+ * @return -1 for less than, 0 for equals, 1 for greater than
+ */
 static int compare_by_prob(const void *a, const void *b) {
     PTable a_val = *(PTable *)a;
     PTable b_val = *(PTable *)b;
@@ -39,6 +46,13 @@ static int compare_by_prob(const void *a, const void *b) {
     return 0;
 }
 
+/**
+ * Comparison function for two HuffTables by length
+ *
+ * @param a First HuffTable to compare
+ * @param b Second PTable to compare
+ * @return -1 for less than, 0 for equals, 1 for greater than
+ */
 static int compare_by_length(const void *a, const void *b) {
     HuffTable a_val = *(HuffTable *)a;
     HuffTable b_val = *(HuffTable *)b;
@@ -51,6 +65,24 @@ static int compare_by_length(const void *a, const void *b) {
     return 0;
 }
 
+/**
+ * Computes the length of the Huffman encoding for each distinct input value.
+ * Uses package merge algorithm as follows:
+ * 1. start with an empty list, lets call it list(0), set i = 0
+ * 2. add 1 entry to list(i) for each symbol we have and give each a score equal to the probability of the respective symbol
+ * 3. merge the 2 symbols of least score and put them in list(i+1), and remove them from list(i). The new score will be the sum of the 2 scores
+ * 4. if there is more than 1 symbol left in the current list(i), then goto 3
+ * 5. i++
+ * 6. if i < 16 goto 2
+ * 7. select the n-1 elements in the last list with the lowest score (n = the number of symbols)
+ * 8. the length of the huffman code for symbol s will be equal to the number of times the symbol occurs in the select elements
+ * Go to guru.multimedia.cx/small-tasks-for-ffmpeg/ for more details
+ *
+ * @param prob_table input array of a PTable for each distinct input value
+ * @param distincts  output array of a HuffTable that will be populated by this function
+ * @param size       size of the prob_table array
+ * @param maxLength  max length of an encoding
+ */
 void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size, int maxLength) {
     PackageMergerList list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
@@ -120,6 +152,15 @@ void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s) {
     memset(s->val_count, 0, sizeof(s->val_count));
 }
 
+/**
+ * Produces a Huffman encoding with a given input
+ * 
+ * @param s 		input to encode
+ * @param bits 		output array where the ith character represents how many input values have i length encoding
+ * @param val 		output array of input values sorted by their encoded length
+ * @param max_nval	maximum number of distinct input values
+ * @return int Return code, 0 if succeeded.    
+ */
 int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
                                   uint8_t val[], int max_nval) {
     int i, j;

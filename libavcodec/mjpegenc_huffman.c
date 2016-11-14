@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "libavutil/error.h"
+#include "libavutil/qsort.h"
 #include "mjpegenc_huffman.h"
 
 static int compare_by_prob(const void *a, const void *b) {
@@ -63,7 +64,7 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     from->nitems = 0;
     to->item_idx[0] = 0;
     from->item_idx[0] = 0;
-    qsort(prob_table, size, sizeof(PTable), compare_by_prob);
+    AV_QSORT(prob_table, size, PTable, compare_by_prob);
     for (times = 0; times <= 16; times++) {
         to->nitems = 0;
         to->item_idx[0] = 0;
@@ -143,7 +144,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
     val_counts[j].value = 256;
     val_counts[j].prob = 0;
     ff_mjpegenc_huffman_compute_bits(val_counts, distincts, nval + 1);
-    qsort(distincts, nval, sizeof(HuffTable), compare_by_length);
+    AV_QSORT(distincts, nval, HuffTable, compare_by_length);
 
     memset(bits, 0, sizeof(bits[0]) * 17);
     for (i = 0; i < nval; i++) {

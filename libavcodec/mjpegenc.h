@@ -41,8 +41,9 @@
 
 typedef struct MJpegValue {
     // Store one macroblock's worth of storage
-    uint8_t codes[64 * 10];
     uint16_t mants[64 * 10];
+    uint8_t codes[64 * 10];
+    uint8_t is_dc_bits[64 * 10 / 8];
     int ncode;
     // TODO(jjiang): Make this into a boolean indicating luminance or chrominance.
     int n;

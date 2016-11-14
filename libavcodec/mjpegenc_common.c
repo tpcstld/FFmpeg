@@ -431,7 +431,9 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
         MJpegEncHuffmanContext *ac_ctx = current->n < 4 ? &ac_luminance_ctx : &ac_chrominance_ctx;
 
         for(i = 0; i < current->ncode; i++) {
-            ff_mjpeg_encode_huffman_increment(i == 0 ? dc_ctx : ac_ctx, current->codes[i]);
+            ff_mjpeg_encode_huffman_increment(
+                current->is_dc_bits[i / 8] & (1 << (i % 8)) ? dc_ctx : ac_ctx,
+                current->codes[i]);
         }
     }
 

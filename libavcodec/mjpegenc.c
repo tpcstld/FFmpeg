@@ -194,6 +194,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
         if (!buffer_block) {
             return AVERROR(ENOMEM);
         }
+        memset(buffer_block->is_dc_bits, 0, sizeof(buffer_block->is_dc_bits));
 
         buffer_block->next = NULL;
         buffer_block->ncode = 0;
@@ -214,6 +215,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     val = dc - s->last_dc[component];
 
     buffer_block->n = n;
+    buffer_block->is_dc_bits[buffer_block->ncode / 8] |= 1 << (buffer_block->ncode % 8);
     ff_mjpeg_encode_coef(m, val, 0);
 
     s->last_dc[component] = dc;
@@ -231,7 +233,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             run++;
         } else {
             while (run >= 16) {
-                m->buffer_last->codes[m->buffer_last->ncode++] = 0xf0;
+                buffer_block->codes[buffer_block->ncode++] = 0xf0;
                 run -= 16;
             }
             ff_mjpeg_encode_coef(m, val, run);
@@ -241,7 +243,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
 
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
-        m->buffer_last->codes[m->buffer_last->ncode++] = 0;
+        buffer_block->codes[buffer_block->ncode++] = 0;
 
     return 0;
 }

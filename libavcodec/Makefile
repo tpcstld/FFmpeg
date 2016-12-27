@@ -39,6 +39,7 @@ OBJS = allcodecs.o                                                      \
        mediacodec.o                                                     \
        mpeg12framerate.o                                                \
        options.o                                                        \
+       mjpegenc_huffman.o                                               \
        parser.o                                                         \
        profiles.o                                                       \
        qsv_api.o                                                        \
@@ -177,7 +178,8 @@ OBJS-$(CONFIG_AMRWB_DECODER)           += amrwbdec.o celp_filters.o   \
 OBJS-$(CONFIG_AMV_ENCODER)             += mjpegenc.o mjpegenc_common.o \
                                           mpegvideo_enc.o motion_est.o \
                                           ratecontrol.o mpeg12data.o   \
-                                          mpegvideo.o
+                                          mpegvideo.o                  \
+                                          mjpegenc_huffman.o
 OBJS-$(CONFIG_ANM_DECODER)             += anm.o
 OBJS-$(CONFIG_ANSI_DECODER)            += ansi.o cga_data.o
 OBJS-$(CONFIG_APE_DECODER)             += apedec.o
@@ -379,7 +381,8 @@ OBJS-$(CONFIG_METASOUND_DECODER)       += metasound.o metasound_data.o \
 OBJS-$(CONFIG_MICRODVD_DECODER)        += microdvddec.o ass.o
 OBJS-$(CONFIG_MIMIC_DECODER)           += mimic.o
 OBJS-$(CONFIG_MJPEG_DECODER)           += mjpegdec.o
-OBJS-$(CONFIG_MJPEG_ENCODER)           += mjpegenc.o mjpegenc_common.o
+OBJS-$(CONFIG_MJPEG_ENCODER)           += mjpegenc.o mjpegenc_common.o \
+                                          mjpegenc_huffman.o
 OBJS-$(CONFIG_MJPEGB_DECODER)          += mjpegbdec.o
 OBJS-$(CONFIG_MJPEG_VAAPI_ENCODER)     += vaapi_encode_mjpeg.o
 OBJS-$(CONFIG_MLP_DECODER)             += mlpdec.o mlpdsp.o
@@ -1012,6 +1015,7 @@ TESTPROGS = avpacket                                                    \
             jpeg2000dwt                                                 \
             mathops                                                    \
             options                                                     \
+            mjpegenc_huffman                                            \
             utils                                                       \
 
 TESTPROGS-$(CONFIG_CABAC)                 += cabac

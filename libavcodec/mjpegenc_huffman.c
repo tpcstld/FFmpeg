@@ -33,13 +33,13 @@
  *
  * @param a First PTable to compare
  * @param b Second PTable to compare
- * @return -1 for less than, 0 for equals, 1 for greater than
+ * @return < 0 for less than, 0 for equals, > 0 for greater than
  */
 static int compare_by_prob(const void *a, const void *b)
 {
     PTable a_val = *(PTable *) a;
     PTable b_val = *(PTable *) b;
-    return FFDIFFSIGN(a_val.prob, b_val.prob);
+    return a_val.prob - b_val.prob;
 }
 
 /**
@@ -47,13 +47,13 @@ static int compare_by_prob(const void *a, const void *b)
  *
  * @param a First HuffTable to compare
  * @param b Second HuffTable to compare
- * @return -1 for less than, 0 for equals, 1 for greater than
+ * @return < 0 for less than, 0 for equals, > 0 for greater than
  */
 static int compare_by_length(const void *a, const void *b)
 {
     HuffTable a_val = *(HuffTable *) a;
     HuffTable b_val = *(HuffTable *) b;
-    return FFDIFFSIGN(a_val.length, b_val.length);
+    return a_val.length - b_val.length;
 }
 
 /**

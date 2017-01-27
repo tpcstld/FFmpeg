@@ -110,7 +110,8 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
  *
  * @param s The MpegEncContext.
  */
-void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
+void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
+{
     int i, nbits, code, table_id;
     MJpegContext *m = s->mjpeg_ctx;
     uint8_t *huff_size[4] = {m->huff_size_dc_luminance,
@@ -156,7 +157,8 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s) {
  * @param table_id Which Huffman table the code belongs to.
  * @param code The encoded exponent of the coefficients and the run-bits.
  */
-static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code) {
+static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
+{
     MJpegBuffer *m = s->buffer_last;
     m->table_ids[m->ncode] = table_id;
     m->codes[m->ncode++] = code;

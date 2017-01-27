@@ -81,7 +81,8 @@ static int check_lengths(int L, int expected_length,
 
 // Test the example given on @see <a
 // href="http://guru.multimedia.cx/small-tasks-for-ffmpeg/">Small Tasks</a>
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     int i, ret = 0;
     // Probabilities of symbols 0..4
     PTable val_counts[] = {

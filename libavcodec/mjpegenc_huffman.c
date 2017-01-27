@@ -35,7 +35,8 @@
  * @param b Second PTable to compare
  * @return -1 for less than, 0 for equals, 1 for greater than
  */
-static int compare_by_prob(const void *a, const void *b) {
+static int compare_by_prob(const void *a, const void *b)
+{
     PTable a_val = *(PTable *) a;
     PTable b_val = *(PTable *) b;
     return FFDIFFSIGN(a_val.prob, b_val.prob);
@@ -48,7 +49,8 @@ static int compare_by_prob(const void *a, const void *b) {
  * @param b Second HuffTable to compare
  * @return -1 for less than, 0 for equals, 1 for greater than
  */
-static int compare_by_length(const void *a, const void *b) {
+static int compare_by_length(const void *a, const void *b)
+{
     HuffTable a_val = *(HuffTable *) a;
     HuffTable b_val = *(HuffTable *) b;
     return FFDIFFSIGN(a_val.length, b_val.length);
@@ -73,9 +75,10 @@ static int compare_by_length(const void *a, const void *b) {
  * @param prob_table input array of a PTable for each distinct input value
  * @param distincts  output array of a HuffTable that will be populated by this function
  * @param size       size of the prob_table array
- * @param maxLength  max length of an encoding
+ * @param max_length max length of an encoding
  */
-void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size, int maxLength) {
+void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, int size, int max_length)
+{
     PackageMergerList list_a, list_b, *to = &list_a, *from = &list_b, *temp;
 
     int times, i, j, k;
@@ -90,14 +93,14 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     from->item_idx[0] = 0;
     AV_QSORT(prob_table, size, PTable, compare_by_prob);
 
-    for (times = 0; times <= maxLength; times++) {
+    for (times = 0; times <= max_length; times++) {
         to->nitems = 0;
         to->item_idx[0] = 0;
 
         j = 0;
         k = 0;
 
-        if (times < maxLength) {
+        if (times < max_length) {
             i = 0;
         }
         while (i < size || j + 1 < from->nitems) {
@@ -140,7 +143,8 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     }
 }
 
-void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s) {
+void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s)
+{
     memset(s->val_count, 0, sizeof(s->val_count));
 }
 

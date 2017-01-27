@@ -422,7 +422,8 @@ void ff_mjpeg_escape_FF(PutBitContext *pb, int start)
  *
  * @param m MJpegContext containing the JPEG buffer.
  */
-static void ff_mjpeg_build_optimal_huffman(MJpegContext *m) {
+static void ff_mjpeg_build_optimal_huffman(MJpegContext *m)
+{
     int i, ret;
     MJpegBuffer* current;
 

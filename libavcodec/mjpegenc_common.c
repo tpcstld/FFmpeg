@@ -435,7 +435,7 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m)
                                       &dc_chrominance_ctx,
                                       &ac_luminance_ctx,
                                       &ac_chrominance_ctx};
-    for (i = 0; i < 4; ++i) {
+    for (i = 0; i < 4; i++) {
         ff_mjpeg_encode_huffman_init(ctx[i]);
     }
     for (current = m->buffer; current; current = current->next) {

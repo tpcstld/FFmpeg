@@ -104,7 +104,7 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
             i = 0;
         }
         while (i < size || j + 1 < from->nitems) {
-            ++to->nitems;
+            to->nitems++;
             to->item_idx[to->nitems] = to->item_idx[to->nitems - 1];
             if (i < size &&
                 (j + 1 >= from->nitems ||
@@ -112,9 +112,9 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
                      from->probability[j] + from->probability[j + 1])) {
                 to->items[to->item_idx[to->nitems]++] = prob_table[i].value;
                 to->probability[to->nitems - 1] = prob_table[i].prob;
-                ++i;
+                i++;
             } else {
-                for (k = from->item_idx[j]; k < from->item_idx[j + 2]; ++k) {
+                for (k = from->item_idx[j]; k < from->item_idx[j + 2]; k++) {
                     to->items[to->item_idx[to->nitems]++] = from->items[k];
                 }
                 to->probability[to->nitems - 1] =
@@ -128,8 +128,8 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
     }
 
     min = (size - 1 < from->nitems) ? size - 1 : from->nitems;
-    for (i = 0; i < from->item_idx[min]; ++i) {
-        ++nbits[from->items[i]];
+    for (i = 0; i < from->item_idx[min]; i++) {
+        nbits[from->items[i]]++;
     }
     // we don't want to return the 256 bit count (it was just in here to prevent
     // all 1s encoding)
@@ -138,7 +138,7 @@ void ff_mjpegenc_huffman_compute_bits(PTable *prob_table, HuffTable *distincts, 
         if (nbits[i] > 0) {
             distincts[j].code = i;
             distincts[j].length = nbits[i];
-            ++j;
+            j++;
         }
     }
 }
@@ -158,25 +158,26 @@ void ff_mjpeg_encode_huffman_init(MJpegEncHuffmanContext *s)
  * @return int      Return code, 0 if succeeded.
  */
 int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
-                                  uint8_t val[], int max_nval) {
+                                  uint8_t val[], int max_nval)
+{
     int i, j;
     int nval = 0;
     PTable val_counts[257];
     HuffTable distincts[256];
 
-    for (i = 0; i < 256; ++i) {
-        if (s->val_count[i]) ++nval;
+    for (i = 0; i < 256; i++) {
+        if (s->val_count[i]) nval++;
     }
     if (nval > max_nval) {
         return AVERROR(EINVAL);
     }
 
     j = 0;
-    for (i = 0; i < 256; ++i) {
+    for (i = 0; i < 256; i++) {
         if (s->val_count[i]) {
             val_counts[j].value = i;
             val_counts[j].prob = s->val_count[i];
-            ++j;
+            j++;
         }
     }
     val_counts[j].value = 256;
@@ -187,7 +188,7 @@ int ff_mjpeg_encode_huffman_close(MJpegEncHuffmanContext *s, uint8_t bits[17],
     memset(bits, 0, sizeof(bits[0]) * 17);
     for (i = 0; i < nval; i++) {
         val[i] = distincts[i].code;
-        ++bits[distincts[i].length];
+        bits[distincts[i].length]++;
     }
 
     return 0;

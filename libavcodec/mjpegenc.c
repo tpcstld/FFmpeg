@@ -131,7 +131,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 
         ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
 
-        for (i = 0; i < current->ncode; ++i) {
+        for (i = 0; i < current->ncode; i++) {
             code = current->codes[i];
             nbits = code & 0xf;
             table_id = current->table_ids[i];

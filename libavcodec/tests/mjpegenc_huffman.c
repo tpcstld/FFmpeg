@@ -40,17 +40,17 @@ static int check_lengths(int L, int expected_length,
     double cantor_measure = 0;
     assert(nprobs <= 256);
 
-    for (i = 0; i < nprobs; ++i) {
+    for (i = 0; i < nprobs; i++) {
         val_counts[i] = (PTable){.value = i, .prob = probs[i]};
     }
 
     ff_mjpegenc_huffman_compute_bits(val_counts, lengths, nprobs, L);
 
-    for (i = 0; i < nprobs; ++i) {
+    for (i = 0; i < nprobs; i++) {
         // Find the value's prob and length
-        for (j = 0; j < nprobs; ++j)
+        for (j = 0; j < nprobs; j++)
             if (val_counts[j].value == i) break;
-        for (k = 0; k < nprobs; ++k)
+        for (k = 0; k < nprobs; k++)
             if (lengths[k].code == i) break;
         if (!(j < nprobs && k < nprobs)) return 1;
         prob = val_counts[j].prob;

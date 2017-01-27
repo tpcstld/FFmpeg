@@ -96,8 +96,9 @@ typedef struct MJpegContext {
  * Enum for the Huffman encoding strategy.
  */
 enum HuffmanTableOption {
-  HUFFMAN_TABLE_DEFAULT = 0, ///< Use the default Huffman tables.
-  HUFFMAN_TABLE_OPTIMAL = 1  ///< Compute and use optimal Huffman tables.
+    HUFFMAN_TABLE_DEFAULT = 0, ///< Use the default Huffman tables.
+    HUFFMAN_TABLE_OPTIMAL = 1, ///< Compute and use optimal Huffman tables.
+    NB_HUFFMAN_TABLE_OPTION = 2
 };
 
 static inline void put_marker(PutBitContext *p, enum JpegMarker code)

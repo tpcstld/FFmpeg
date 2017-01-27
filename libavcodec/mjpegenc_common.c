@@ -425,7 +425,7 @@ void ff_mjpeg_escape_FF(PutBitContext *pb, int start)
 static void ff_mjpeg_build_optimal_huffman(MJpegContext *m)
 {
     int i, ret;
-    MJpegBuffer* current;
+    MJpegBuffer *current;
 
     MJpegEncHuffmanContext dc_luminance_ctx;
     MJpegEncHuffmanContext dc_chrominance_ctx;

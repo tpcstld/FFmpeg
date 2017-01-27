@@ -122,8 +122,8 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                               m->huff_code_dc_chrominance,
                               m->huff_code_ac_luminance,
                               m->huff_code_ac_chrominance};
-    MJpegBuffer* current;
-    MJpegBuffer* next;
+    MJpegBuffer *current;
+    MJpegBuffer *next;
 
     for (current = m->buffer; current;) {
         int size_increase =  s->avctx->internal->byte_buffer_size/4
@@ -209,7 +209,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
-    MJpegBuffer* buffer_block = m->buffer_last;
+    MJpegBuffer *buffer_block = m->buffer_last;
 
     // Any block has at most 64 coefficients.
     if (buffer_block == NULL || buffer_block->ncode + 64

@@ -213,7 +213,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
 
     // Any block has at most 64 coefficients.
     if (buffer_block == NULL || buffer_block->ncode + 64
-            > FF_ARRAY_ELEMS(buffer_block->codes)) {
+        > FF_ARRAY_ELEMS(buffer_block->codes)) {
         buffer_block = av_malloc(sizeof(MJpegBuffer));
         if (!buffer_block) {
             return AVERROR(ENOMEM);

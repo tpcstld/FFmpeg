@@ -32,7 +32,7 @@
 
 // Validate the computed lengths satisfy the JPEG restrictions and is optimal.
 static int check_lengths(int L, int expected_length,
-        const int *probs, int nprobs) {
+                         const int *probs, int nprobs) {
     HuffTable lengths[256];
     PTable val_counts[256];
     int actual_length = 0, i, j, k, prob, length;
@@ -70,10 +70,10 @@ static int check_lengths(int L, int expected_length,
 
     if (ret == 1) {
       fprintf(stderr,
-          "Cantor measure: %f\n"
-          "Actual length: %d\n"
-          "Expected length: %d\n",
-          cantor_measure, actual_length, expected_length);
+              "Cantor measure: %f\n"
+              "Actual length: %d\n"
+              "Expected length: %d\n",
+              cantor_measure, actual_length, expected_length);
     }
 
     return ret;
@@ -110,11 +110,11 @@ int main(int argc, char **argv)
         if (distincts[i].code != expected[i].code ||
             distincts[i].length != expected[i].length) {
             fprintf(stderr,
-                "Built huffman does not equal expectations. "
-                "Expected: code %d probability %d, "
-                "Actual: code %d probability %d\n",
-                expected[i].code, expected[i].length,
-                distincts[i].code, distincts[i].length);
+                    "Built huffman does not equal expectations. "
+                    "Expected: code %d probability %d, "
+                    "Actual: code %d probability %d\n",
+                    expected[i].code, expected[i].length,
+                    distincts[i].code, distincts[i].length);
             ret = 1;
         }
     }

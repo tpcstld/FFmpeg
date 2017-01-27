@@ -148,17 +148,14 @@ int main(int argc, char **argv)
     }
 
     // Check handling of zero probabilities
-    if (check_lengths(16, 18, probs_zeroes, FF_ARRAY_ELEMS(probs_zeroes))) {
+    if (check_lengths(16, 18, probs_zeroes, FF_ARRAY_ELEMS(probs_zeroes)))
         ret = 1;
-    }
     // Check skewed distribution over 256 without saturated lengths
-    if (check_lengths(16, 41282, probs_skewed, FF_ARRAY_ELEMS(probs_skewed))) {
+    if (check_lengths(16, 41282, probs_skewed, FF_ARRAY_ELEMS(probs_skewed)))
         ret = 1;
-    }
     // Check skewed distribution over 256 with saturated lengths
-    if (check_lengths(16, 669904, probs_sat, FF_ARRAY_ELEMS(probs_sat))) {
+    if (check_lengths(16, 669904, probs_sat, FF_ARRAY_ELEMS(probs_sat)))
         ret = 1;
-    }
 
     return ret;
 }

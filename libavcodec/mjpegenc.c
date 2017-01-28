@@ -240,8 +240,6 @@ static void encode_block(MpegEncContext *s, int16_t *block, int n)
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
         ff_mjpeg_encode_code(m, table_id, 0);
-
-    return 0;
 }
 
 // Possibly reallocate the huffman code buffer, assuming blocks_per_mb.

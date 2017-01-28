@@ -2675,6 +2675,7 @@ static inline void encode_mb_hq(MpegEncContext *s, MpegEncContext *backup, MpegE
                            PutBitContext pb[2], PutBitContext pb2[2], PutBitContext tex_pb[2],
                            int *dmin, int *next_block, int motion_x, int motion_y)
 {
+	// TODO(yingted): copy huffman context too
     int score;
     uint8_t *dest_backup[3];
 

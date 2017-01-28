@@ -43,17 +43,15 @@
  * Buffer of JPEG frame data.
  *
  * Optimal Huffman table generation requires the frame data to be loaded into
- * a buffer so that the tables can be computed. The data is stored in a linked
- * list buffer, as the exact size may vary.
+ * a buffer so that the tables can be computed.
+ * There are at most mb_width*mb_height*12*64 of these per frame.
  */
-typedef struct MJpegBuffer {
+typedef struct MJpegHuffmanCode {
     // 0=DC lum, 1=DC chrom, 2=AC lum, 3=AC chrom
-    uint8_t table_ids[64 * 12]; ///< The Huffman table id associated with the data.
-    uint8_t codes[64 * 12];     ///< The exponents.
-    uint16_t mants[64 * 12];    ///< The mantissas.
-    int ncode;                  ///< Number of current entries in this buffer.
-    struct MJpegBuffer *next;   ///< The next struct in the linked list.
-} MJpegBuffer;
+    uint8_t table_id; ///< The Huffman table id associated with the data.
+    uint8_t code;     ///< The exponent.
+    uint16_t mant;    ///< The mantissa.
+} MJpegHuffmanCode;
 
 /**
  * Holds JPEG frame data and Huffman table data.
@@ -87,8 +85,9 @@ typedef struct MJpegContext {
     uint8_t bits_ac_chrominance[17]; ///< AC chrominance Huffman bits.
     uint8_t val_ac_chrominance[256]; ///< AC chrominance Huffman values.
 
-    MJpegBuffer *buffer;             ///< JPEG buffer linked list head.
-    MJpegBuffer *buffer_last;        ///< JPEG buffer linked list tail.
+    MJpegHuffmanCode *huff_buffer;   ///< Buffer for Huffman code values.
+    size_t huff_ncode;               ///< Number of current entries in the buffer.
+    size_t huff_capacity;            ///< Number of current entries in the buffer.
     int error;                       ///< Error code.
 } MJpegContext;
 

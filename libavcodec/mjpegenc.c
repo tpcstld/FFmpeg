@@ -43,6 +43,8 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 {
     MJpegContext *m;
 
+    av_assert0(s->slice_context_count == 1);
+
     if (s->width > 65500 || s->height > 65500) {
         av_log(s, AV_LOG_ERROR, "JPEG does not support resolutions above 65500x65500\n");
         return AVERROR(EINVAL);
@@ -83,8 +85,9 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
     // Buffers start out empty.
-    m->buffer = NULL;
-    m->buffer_last = NULL;
+    m->huff_buffer = NULL;
+    m->huff_ncode = 0;
+    m->huff_capacity = 0;
     m->error = 0;
 
     s->mjpeg_ctx = m;
@@ -93,15 +96,7 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 
 av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 {
-    // In the event of an error, not all the buffers may be freed.
-    while (s->mjpeg_ctx->buffer) {
-        struct MJpegBuffer *buffer = s->mjpeg_ctx->buffer;
-        s->mjpeg_ctx->buffer = buffer->next;
-
-        av_freep(&buffer);
-    }
-    s->mjpeg_ctx->buffer_last = NULL;
-
+    av_freep(&s->mjpeg_ctx->huff_buffer);
     av_freep(&s->mjpeg_ctx);
 }
 
@@ -122,32 +117,31 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                               m->huff_code_dc_chrominance,
                               m->huff_code_ac_luminance,
                               m->huff_code_ac_chrominance};
-    MJpegBuffer *current;
-    MJpegBuffer *next;
+    size_t total_bits = 0;
 
-    for (current = m->buffer; current;) {
-        int size_increase =  s->avctx->internal->byte_buffer_size/4
-                           + s->mb_width*MAX_MB_BYTES;
+    // Estimate the total size first
+    for (i = 0; i < m->huff_ncode; i++) {
+        table_id = m->huff_buffer[i].table_id;
+        code = m->huff_buffer[i].code;
+        nbits = code & 0xf;
 
-        ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
-
-        for (i = 0; i < current->ncode; i++) {
-            code = current->codes[i];
-            nbits = code & 0xf;
-            table_id = current->table_ids[i];
-            put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
-            if (nbits != 0) {
-                put_sbits(&s->pb, nbits, current->mants[i]);
-            }
-        }
-
-        next = current->next;
-        av_freep(&current);
-        current = next;
+        total_bits += huff_size[table_id][code] + nbits;
     }
 
-    m->buffer = NULL;
-    m->buffer_last = NULL;
+    ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, (total_bits + 7) / 8);
+
+    for (i = 0; i < m->huff_ncode; i++) {
+        table_id = m->huff_buffer[i].table_id;
+        code = m->huff_buffer[i].code;
+        nbits = code & 0xf;
+
+        put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
+        if (nbits != 0) {
+            put_sbits(&s->pb, nbits, m->huff_buffer[i].mant);
+        }
+    }
+
+    m->huff_ncode = 0;
 }
 
 /**
@@ -159,9 +153,10 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
  */
 static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
 {
-    MJpegBuffer *m = s->buffer_last;
-    m->table_ids[m->ncode] = table_id;
-    m->codes[m->ncode++] = code;
+    MJpegHuffmanCode *c = &s->huff_buffer[s->huff_ncode++];
+    av_assert0(s->huff_ncode < s->huff_capacity);
+    c->table_id = table_id;
+    c->code = code;
 }
 
 /**
@@ -175,9 +170,6 @@ static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int c
 static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int run)
 {
     int mant, code;
-    MJpegBuffer *m = s->buffer_last;
-    av_assert0(m->ncode >= 0);
-    av_assert0(m->ncode < FF_ARRAY_ELEMS(m->codes));
 
     if (val == 0) {
         av_assert0(run == 0);
@@ -191,7 +183,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
 
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
-        m->mants[m->ncode] = mant;
+        s->huff_buffer[s->huff_ncode].mant = mant;
         ff_mjpeg_encode_code(s, table_id, code);
     }
 }
@@ -202,35 +194,16 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
  * @param s The MJpegEncContext that contains the JPEG buffer.
  * @param block The block.
  * @param n The block's index or number.
- * @return int Return code, 0 if succeeded.
  */
-static int encode_block(MpegEncContext *s, int16_t *block, int n)
+static void encode_block(MpegEncContext *s, int16_t *block, int n)
 {
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
-    MJpegBuffer *buffer_block = m->buffer_last;
 
-    // Any block has at most 64 coefficients.
-    if (buffer_block == NULL || buffer_block->ncode + 64
-        > FF_ARRAY_ELEMS(buffer_block->codes)) {
-        buffer_block = av_malloc(sizeof(MJpegBuffer));
-        if (!buffer_block) {
-            return AVERROR(ENOMEM);
-        }
+    if (m->error) return;
 
-        buffer_block->next = NULL;
-        buffer_block->ncode = 0;
-
-        // Add to end of buffer.
-        if (!m->buffer) {
-            m->buffer = buffer_block;
-            m->buffer_last = buffer_block;
-        } else {
-            m->buffer_last->next = buffer_block;
-            m->buffer_last = buffer_block;
-        }
-    }
+    av_assert0(m->huff_capacity >= m->huff_ncode + 64);
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);
@@ -271,45 +244,68 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     return 0;
 }
 
+// Possibly reallocate the huffman code buffer, assuming blocks_per_mb.
+// Set s->mjpeg_ctx->error on ENOMEM.
+static void realloc_huffman(MpegEncContext *s, int blocks_per_mb)
+{
+    MJpegContext *m = s->mjpeg_ctx;
+    size_t num_mbs, num_blocks, num_codes;
+    MJpegHuffmanCode *new_buf;
+    if (m->error) return;
+    // Make sure we have enough space to hold this frame.
+    num_mbs = s->mb_width * s->mb_height;
+    num_blocks = num_mbs * blocks_per_mb;
+    av_assert0(m->huff_ncode <=
+               (s->mb_y * s->mb_width + s->mb_x) * blocks_per_mb * 64);
+    num_codes = num_blocks * 64;
+
+    new_buf = av_fast_realloc(m->huff_buffer, &m->huff_capacity,
+                              num_codes * sizeof(MJpegHuffmanCode));
+    if (!new_buf) {
+        m->error = AVERROR(ENOMEM);
+    } else {
+        m->huff_buffer = new_buf;
+    }
+}
+
 int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
 {
-    int i;
-    int ret = 0;
-    if (s->mjpeg_ctx->error)
-        return s->mjpeg_ctx->error;
+    int i, is_chroma_420;
     if (s->chroma_format == CHROMA_444) {
-        if (!ret) ret = encode_block(s, block[0], 0);
-        if (!ret) ret = encode_block(s, block[2], 2);
-        if (!ret) ret = encode_block(s, block[4], 4);
-        if (!ret) ret = encode_block(s, block[8], 8);
-        if (!ret) ret = encode_block(s, block[5], 5);
-        if (!ret) ret = encode_block(s, block[9], 9);
+        realloc_huffman(s, 12);
+        encode_block(s, block[0], 0);
+        encode_block(s, block[2], 2);
+        encode_block(s, block[4], 4);
+        encode_block(s, block[8], 8);
+        encode_block(s, block[5], 5);
+        encode_block(s, block[9], 9);
 
         if (16*s->mb_x+8 < s->width) {
-            if (!ret) ret = encode_block(s, block[1], 1);
-            if (!ret) ret = encode_block(s, block[3], 3);
-            if (!ret) ret = encode_block(s, block[6], 6);
-            if (!ret) ret = encode_block(s, block[10], 10);
-            if (!ret) ret = encode_block(s, block[7], 7);
-            if (!ret) ret = encode_block(s, block[11], 11);
+            encode_block(s, block[1], 1);
+            encode_block(s, block[3], 3);
+            encode_block(s, block[6], 6);
+            encode_block(s, block[10], 10);
+            encode_block(s, block[7], 7);
+            encode_block(s, block[11], 11);
         }
     } else {
+        is_chroma_420 = (s->chroma_format == CHROMA_420);
+        realloc_huffman(s, 5 + (is_chroma_420 ? 1 : 3));
         for(i=0;i<5;i++) {
-            if (!ret) ret = encode_block(s, block[i], i);
+            encode_block(s, block[i], i);
         }
-        if (s->chroma_format == CHROMA_420) {
-            if (!ret) ret = encode_block(s, block[5], 5);
+        if (is_chroma_420) {
+            encode_block(s, block[5], 5);
         } else {
-            if (!ret) ret = encode_block(s, block[6], 6);
-            if (!ret) ret = encode_block(s, block[5], 5);
-            if (!ret) ret = encode_block(s, block[7], 7);
+            encode_block(s, block[6], 6);
+            encode_block(s, block[5], 5);
+            encode_block(s, block[7], 7);
         }
     }
-    if (ret) {
-        s->mjpeg_ctx->error = ret;
-        return ret;
-    }
+    if (s->mjpeg_ctx->error)
+        return s->mjpeg_ctx->error;
 
+    // TODO(yingted): update bits
     s->i_tex_bits += get_bits_diff(s);
     return 0;
 }

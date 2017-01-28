@@ -151,15 +151,10 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
  * @param table_id Which Huffman table the code belongs to.
  * @param code The encoded exponent of the coefficients and the run-bits.
  */
-static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
+static inline void ff_mjpeg_encode_code(MJpegHuffmanCode *c, uint8_t table_id, int code)
 {
-    MJpegHuffmanCode *c;
-
-    av_assert0(s->huff_ncode < s->huff_capacity);
-    c = &s->huff_buffer[s->huff_ncode];
     c->table_id = table_id;
     c->code = code;
-    s->huff_ncode++;
 }
 
 /**
@@ -170,13 +165,13 @@ static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int c
  * @param val The coefficient.
  * @param run The run-bits.
  */
-static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int run)
+static void ff_mjpeg_encode_coef(MJpegHuffmanCode *c, uint8_t table_id, int val, int run)
 {
     int mant, code;
 
     if (val == 0) {
         av_assert0(run == 0);
-        ff_mjpeg_encode_code(s, table_id, 0);
+        ff_mjpeg_encode_code(c, table_id, 0);
     } else {
         mant = val;
         if (val < 0) {
@@ -186,8 +181,8 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
 
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
-        s->huff_buffer[s->huff_ncode].mant = mant;
-        ff_mjpeg_encode_code(s, table_id, code);
+        c->mant = mant;
+        ff_mjpeg_encode_code(c, table_id, code);
     }
 }
 
@@ -204,6 +199,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
+    MJpegHuffmanCode *c = m->huff_buffer + m->huff_ncode;
     av_assert0(m->huff_capacity >= m->huff_ncode + 64);
 
     /* DC coef */
@@ -212,7 +208,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     dc = block[0]; /* overflow is impossible */
     val = dc - s->last_dc[component];
 
-    ff_mjpeg_encode_coef(m, table_id, val, 0);
+    ff_mjpeg_encode_coef(c++, table_id, val, 0);
 
     s->last_dc[component] = dc;
 
@@ -235,17 +231,19 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
                 m->huff_buffer[m->huff_ncode].code = 0xf0;
                 m->huff_buffer[m->huff_ncode++].mant = 0;
 #endif
-                ff_mjpeg_encode_code(m, table_id, 0xf0);
+                ff_mjpeg_encode_code(c++, table_id, 0xf0);
                 run -= 16;
             }
-            ff_mjpeg_encode_coef(m, table_id, val, run);
+            ff_mjpeg_encode_coef(c++, table_id, val, run);
             run = 0;
         }
     }
 
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
-        ff_mjpeg_encode_code(m, table_id, 0);
+        ff_mjpeg_encode_code(c++, table_id, 0);
+
+    m->huff_ncode = c - m->huff_buffer;
 
     return 0;
 }

@@ -277,6 +277,7 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             m->buffer_last = buffer_block;
         }
     }
+    av_assert0(m->huff_capacity >= m->huff_ncode + 64);
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);

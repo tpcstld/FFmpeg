@@ -130,8 +130,21 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                               m->huff_code_ac_chrominance};
     MJpegBuffer *current;
     MJpegBuffer *next;
+    size_t total_bits = 0;
+
+    // Estimate the total size first
+    for (i = 0; i < m->huff_ncode; i++) {
+        table_id = m->huff_buffer[i].table_id;
+        code = m->huff_buffer[i].code;
+        nbits = code & 0xf;
+
+        total_bits += huff_size[table_id][code] + nbits;
+    }
+
+    ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, (total_bits + 7) / 8);
 
     for (current = m->buffer; current;) {
+#if 0
         int size_increase =  s->avctx->internal->byte_buffer_size/4
                            + s->mb_width*MAX_MB_BYTES;
 
@@ -146,10 +159,22 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                 put_sbits(&s->pb, nbits, current->mants[i]);
             }
         }
+#endif
 
         next = current->next;
         av_freep(&current);
         current = next;
+    }
+
+    for (i = 0; i < m->huff_ncode; i++) {
+        table_id = m->huff_buffer[i].table_id;
+        code = m->huff_buffer[i].code;
+        nbits = code & 0xf;
+
+        put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
+        if (nbits != 0) {
+            put_sbits(&s->pb, nbits, m->huff_buffer[i].mant);
+        }
     }
 
     m->buffer = NULL;
@@ -167,7 +192,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
 {
     MJpegBuffer *m;
-    MJpegHuffmanCode *c;
+    //MJpegHuffmanCode *c;
 
     m = s->buffer_last;
     m->table_ids[m->ncode] = table_id;
@@ -198,7 +223,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
     if (val == 0) {
         av_assert0(run == 0);
         s->huff_buffer[s->huff_ncode].table_id = table_id;
-        s->huff_buffer[s->huff_ncode++].code = code;
+        s->huff_buffer[s->huff_ncode++].code = 0;
         ff_mjpeg_encode_code(s, table_id, 0);
     } else {
         mant = val;

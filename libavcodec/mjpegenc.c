@@ -154,6 +154,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 
     m->buffer = NULL;
     m->buffer_last = NULL;
+    m->huff_ncode = 0;
 }
 
 /**
@@ -165,9 +166,18 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
  */
 static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
 {
-    MJpegBuffer *m = s->buffer_last;
+    MJpegBuffer *m;
+    MJpegHuffmanCode *c;
+
+    m = s->buffer_last;
     m->table_ids[m->ncode] = table_id;
     m->codes[m->ncode++] = code;
+
+    //c = &s->huff_buffer[s->huff_ncode++];
+    //av_assert0(s->huff_ncode <= s->huff_capacity);
+    //c = &s->huff_buffer[s->huff_ncode++];
+    //c->table_id = table_id;
+    //c->code = code;
 }
 
 /**
@@ -187,6 +197,8 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
 
     if (val == 0) {
         av_assert0(run == 0);
+        s->huff_buffer[s->huff_ncode].table_id = table_id;
+        s->huff_buffer[s->huff_ncode++].code = code;
         ff_mjpeg_encode_code(s, table_id, 0);
     } else {
         mant = val;
@@ -198,6 +210,9 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
         m->mants[m->ncode] = mant;
+        s->huff_buffer[s->huff_ncode].table_id = table_id;
+        s->huff_buffer[s->huff_ncode].code = code;
+        s->huff_buffer[s->huff_ncode++].mant = mant;
         ff_mjpeg_encode_code(s, table_id, code);
     }
 }

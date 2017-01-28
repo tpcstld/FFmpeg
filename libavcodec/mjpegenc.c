@@ -242,28 +242,6 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
-    MJpegBuffer *buffer_block = m->buffer_last;
-
-    // Any block has at most 64 coefficients.
-    if (buffer_block == NULL || buffer_block->ncode + 64
-        > FF_ARRAY_ELEMS(buffer_block->codes)) {
-        buffer_block = av_malloc(sizeof(MJpegBuffer));
-        if (!buffer_block) {
-            return AVERROR(ENOMEM);
-        }
-
-        buffer_block->next = NULL;
-        buffer_block->ncode = 0;
-
-        // Add to end of buffer.
-        if (!m->buffer) {
-            m->buffer = buffer_block;
-            m->buffer_last = buffer_block;
-        } else {
-            m->buffer_last->next = buffer_block;
-            m->buffer_last = buffer_block;
-        }
-    }
     av_assert0(m->huff_capacity >= m->huff_ncode + 64);
 
     /* DC coef */
@@ -291,9 +269,6 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
         } else {
             while (run >= 16) {
 #if 0
-                buffer_block->table_ids[buffer_block->ncode] = table_id;
-                buffer_block->codes[buffer_block->ncode] = 0xf0;
-                buffer_block->mants[buffer_block->ncode++] = 0;
                 m->huff_buffer[m->huff_ncode].table_id = table_id;
                 m->huff_buffer[m->huff_ncode].code = 0xf0;
                 m->huff_buffer[m->huff_ncode++].mant = 0;

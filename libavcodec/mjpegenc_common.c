@@ -438,8 +438,8 @@ static void ff_mjpeg_build_optimal_huffman(MJpegContext *m)
         ff_mjpeg_encode_huffman_init(ctx[i]);
     }
     for (i = 0; i < m->huff_ncode; i++) {
-        table_id = m->huff_buffer[i].table_id;
-        code = m->huff_buffer[i].code;
+        table_id = m->huff_table_ids[i];
+        code = m->huff_codes[i];
 
         ff_mjpeg_encode_huffman_increment(ctx[table_id], code);
     }

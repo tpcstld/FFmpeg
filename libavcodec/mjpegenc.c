@@ -85,9 +85,13 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
     // Buffers start out empty.
-    m->huff_buffer = NULL;
+    m->huff_table_ids = NULL;
+    m->huff_codes = NULL;
+    m->huff_mants = NULL;
     m->huff_ncode = 0;
-    m->huff_capacity = 0;
+    m->huff_table_ids_cap = 0;
+    m->huff_codes_cap = 0;
+    m->huff_mants_cap = 0;
     m->error = 0;
 
     s->mjpeg_ctx = m;
@@ -96,7 +100,9 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 
 av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 {
-    av_freep(&s->mjpeg_ctx->huff_buffer);
+    av_freep(&s->mjpeg_ctx->huff_table_ids);
+    av_freep(&s->mjpeg_ctx->huff_codes);
+    av_freep(&s->mjpeg_ctx->huff_mants);
     av_freep(&s->mjpeg_ctx);
 }
 
@@ -121,8 +127,8 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 
     // Estimate the total size first
     for (i = 0; i < m->huff_ncode; i++) {
-        table_id = m->huff_buffer[i].table_id;
-        code = m->huff_buffer[i].code;
+        table_id = m->huff_table_ids[i];
+        code = m->huff_codes[i];
         nbits = code & 0xf;
 
         total_bits += huff_size[table_id][code] + nbits;
@@ -131,13 +137,13 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
     ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, (total_bits + 7) / 8);
 
     for (i = 0; i < m->huff_ncode; i++) {
-        table_id = m->huff_buffer[i].table_id;
-        code = m->huff_buffer[i].code;
+        table_id = m->huff_table_ids[i];
+        code = m->huff_codes[i];
         nbits = code & 0xf;
 
         put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
         if (nbits != 0) {
-            put_sbits(&s->pb, nbits, m->huff_buffer[i].mant);
+            put_sbits(&s->pb, nbits, m->huff_mants[i]);
         }
     }
 
@@ -153,10 +159,11 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
  */
 static inline void ff_mjpeg_encode_code(MJpegContext *s, uint8_t table_id, int code)
 {
-    MJpegHuffmanCode *c = &s->huff_buffer[s->huff_ncode++];
-    av_assert0(s->huff_ncode < s->huff_capacity);
-    c->table_id = table_id;
-    c->code = code;
+    av_assert0(s->huff_ncode < s->huff_table_ids_cap);
+    av_assert0(s->huff_ncode < s->huff_codes_cap);
+    av_assert0(s->huff_ncode < s->huff_mants_cap);
+    s->huff_table_ids[s->huff_ncode] = table_id;
+    s->huff_codes[s->huff_ncode++] = code;
 }
 
 /**
@@ -183,7 +190,7 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
 
         code = (run << 4) | (av_log2_16bit(val) + 1);
 
-        s->huff_buffer[s->huff_ncode].mant = mant;
+        s->huff_mants[s->huff_ncode] = mant;
         ff_mjpeg_encode_code(s, table_id, code);
     }
 }
@@ -203,7 +210,9 @@ static void encode_block(MpegEncContext *s, int16_t *block, int n)
 
     if (m->error) return;
 
-    av_assert0(m->huff_capacity >= m->huff_ncode + 64);
+    av_assert0(m->huff_table_ids_cap >= m->huff_ncode + 64);
+    av_assert0(m->huff_codes_cap >= m->huff_ncode + 64);
+    av_assert0(m->huff_mants_cap >= m->huff_ncode + 64);
 
     /* DC coef */
     component = (n <= 3 ? 0 : (n&1) + 1);
@@ -240,7 +249,14 @@ static void encode_block(MpegEncContext *s, int16_t *block, int n)
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
         ff_mjpeg_encode_code(m, table_id, 0);
+}
 
+static int fast_reallocp(void **p, unsigned int *size, size_t min_size)
+{
+    void *new_buf = av_fast_realloc(*p, size, min_size);
+    if (!new_buf)
+        return AVERROR(ENOMEM);
+    *p = new_buf;
     return 0;
 }
 
@@ -250,7 +266,6 @@ static void realloc_huffman(MpegEncContext *s, int blocks_per_mb)
 {
     MJpegContext *m = s->mjpeg_ctx;
     size_t num_mbs, num_blocks, num_codes;
-    MJpegHuffmanCode *new_buf;
     if (m->error) return;
     // Make sure we have enough space to hold this frame.
     num_mbs = s->mb_width * s->mb_height;
@@ -259,13 +274,16 @@ static void realloc_huffman(MpegEncContext *s, int blocks_per_mb)
                (s->mb_y * s->mb_width + s->mb_x) * blocks_per_mb * 64);
     num_codes = num_blocks * 64;
 
-    new_buf = av_fast_realloc(m->huff_buffer, &m->huff_capacity,
-                              num_codes * sizeof(MJpegHuffmanCode));
-    if (!new_buf) {
-        m->error = AVERROR(ENOMEM);
-    } else {
-        m->huff_buffer = new_buf;
-    }
+    if (m->error) return;
+    m->error = fast_reallocp((void **)&m->huff_table_ids,
+                             &m->huff_table_ids_cap,
+                             num_codes * sizeof(*m->huff_table_ids));
+    if (m->error) return;
+    m->error = fast_reallocp((void **)&m->huff_codes, &m->huff_codes_cap,
+                             num_codes * sizeof(*m->huff_codes));
+    if (m->error) return;
+    m->error = fast_reallocp((void **)&m->huff_mants, &m->huff_mants_cap,
+                             num_codes * sizeof(*m->huff_mants));
 }
 
 int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])

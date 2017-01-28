@@ -55,6 +55,12 @@ typedef struct MJpegBuffer {
     struct MJpegBuffer *next;   ///< The next struct in the linked list.
 } MJpegBuffer;
 
+typedef struct MJpegHuffmanCode {
+    uint8_t table_id; ///< The Huffman table id associated with the data.
+    uint8_t code;     ///< The exponent.
+    uint16_t mant;    ///< The mantissa.
+} MJpegHuffmanCode;
+
 /**
  * Holds JPEG frame data and Huffman table data.
  */
@@ -89,6 +95,9 @@ typedef struct MJpegContext {
 
     MJpegBuffer *buffer;             ///< JPEG buffer linked list head.
     MJpegBuffer *buffer_last;        ///< JPEG buffer linked list tail.
+    unsigned int huff_capacity;      ///< Size of the buffer, in entries.
+    size_t huff_ncode;               ///< Number of current entries in the buffer.
+    MJpegHuffmanCode *huff_buffer;   ///< Buffer for Huffman code values.
     int error;                       ///< Error code.
 } MJpegContext;
 

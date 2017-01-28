@@ -43,6 +43,8 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 {
     MJpegContext *m;
 
+    av_assert0(s->slice_context_count == 1);
+
     if (s->width > 65500 || s->height > 65500) {
         av_log(s, AV_LOG_ERROR, "JPEG does not support resolutions above 65500x65500\n");
         return AVERROR(EINVAL);
@@ -85,6 +87,9 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     // Buffers start out empty.
     m->buffer = NULL;
     m->buffer_last = NULL;
+    m->huff_buffer = NULL;
+    m->huff_ncode = 0;
+    m->huff_capacity = 0;
     m->error = 0;
 
     s->mjpeg_ctx = m;
@@ -102,6 +107,7 @@ av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
     }
     s->mjpeg_ctx->buffer_last = NULL;
 
+    av_freep(&s->mjpeg_ctx->huff_buffer);
     av_freep(&s->mjpeg_ctx);
 }
 

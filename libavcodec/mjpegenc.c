@@ -85,8 +85,6 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
     s->intra_chroma_ac_vlc_last_length = m->uni_chroma_ac_vlc_len;
 
     // Buffers start out empty.
-    m->buffer = NULL;
-    m->buffer_last = NULL;
     m->huff_buffer = NULL;
     m->huff_ncode = 0;
     m->huff_capacity = 0;
@@ -98,15 +96,6 @@ av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 
 av_cold void ff_mjpeg_encode_close(MpegEncContext *s)
 {
-    // In the event of an error, not all the buffers may be freed.
-    while (s->mjpeg_ctx->buffer) {
-        struct MJpegBuffer *buffer = s->mjpeg_ctx->buffer;
-        s->mjpeg_ctx->buffer = buffer->next;
-
-        av_freep(&buffer);
-    }
-    s->mjpeg_ctx->buffer_last = NULL;
-
     av_freep(&s->mjpeg_ctx->huff_buffer);
     av_freep(&s->mjpeg_ctx);
 }
@@ -128,8 +117,6 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                               m->huff_code_dc_chrominance,
                               m->huff_code_ac_luminance,
                               m->huff_code_ac_chrominance};
-    MJpegBuffer *current;
-    MJpegBuffer *next;
     size_t total_bits = 0;
 
     // Estimate the total size first
@@ -143,29 +130,6 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 
     ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, (total_bits + 7) / 8);
 
-    for (current = m->buffer; current;) {
-#if 0
-        int size_increase =  s->avctx->internal->byte_buffer_size/4
-                           + s->mb_width*MAX_MB_BYTES;
-
-        ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, size_increase);
-
-        for (i = 0; i < current->ncode; i++) {
-            code = current->codes[i];
-            nbits = code & 0xf;
-            table_id = current->table_ids[i];
-            put_bits(&s->pb, huff_size[table_id][code], huff_code[table_id][code]);
-            if (nbits != 0) {
-                put_sbits(&s->pb, nbits, current->mants[i]);
-            }
-        }
-#endif
-
-        next = current->next;
-        av_freep(&current);
-        current = next;
-    }
-
     for (i = 0; i < m->huff_ncode; i++) {
         table_id = m->huff_buffer[i].table_id;
         code = m->huff_buffer[i].code;
@@ -177,8 +141,6 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
         }
     }
 
-    m->buffer = NULL;
-    m->buffer_last = NULL;
     m->huff_ncode = 0;
 }
 

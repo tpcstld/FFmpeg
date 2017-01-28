@@ -277,6 +277,30 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     return 0;
 }
 
+// Possibly reallocate the huffman code buffer, assuming blocks_per_mb.
+// Set s->mjpeg_ctx->error on ENOMEM.
+static void realloc_huffman(MpegEncContext *s, int blocks_per_mb)
+{
+    MJpegContext *m = s->mjpeg_ctx;
+    size_t num_mbs, num_blocks, num_codes;
+    MJpegHuffmanCode *new_buf;
+    if (m->error) return;
+    // Make sure we have enough space to hold this frame.
+    num_mbs = s->mb_width * s->mb_height;
+    num_blocks = num_mbs * blocks_per_mb;
+    av_assert0(m->huff_ncode <=
+               (s->mb_y * s->mb_width + s->mb_x) * blocks_per_mb * 64);
+    num_codes = num_blocks * 64;
+
+    new_buf = av_fast_realloc(m->huff_buffer, &m->huff_capacity,
+                              num_codes * sizeof(MJpegHuffmanCode));
+    if (!new_buf) {
+        m->error = AVERROR(ENOMEM);
+    } else {
+        m->huff_buffer = new_buf;
+    }
+}
+
 int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
 {
     int i;
@@ -284,6 +308,7 @@ int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
     if (s->mjpeg_ctx->error)
         return s->mjpeg_ctx->error;
     if (s->chroma_format == CHROMA_444) {
+        realloc_huffman(s, 12);
         if (!ret) ret = encode_block(s, block[0], 0);
         if (!ret) ret = encode_block(s, block[2], 2);
         if (!ret) ret = encode_block(s, block[4], 4);
@@ -300,6 +325,7 @@ int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
             if (!ret) ret = encode_block(s, block[11], 11);
         }
     } else {
+        realloc_huffman(s, 5 + ((s->chroma_format == CHROMA_420) ? 1 : 3));
         for(i=0;i<5;i++) {
             if (!ret) ret = encode_block(s, block[i], i);
         }

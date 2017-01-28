@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 {
     int i, ret = 0;
     // Probabilities of symbols 0..4
-    static const PTable val_counts[] = {
+    static PTable val_counts[] = {
         {.value = 0, .prob = 1},
         {.value = 1, .prob = 2},
         {.value = 2, .prob = 5},
@@ -130,7 +130,8 @@ int main(int argc, char **argv)
     // Actual code lengths
     HuffTable distincts[5];
 
-    // Build optimal huffman tree
+    // Build optimal huffman tree using an internal function, to allow for
+    // smaller-than-normal test cases. This mutates val_counts by sorting.
     ff_mjpegenc_huffman_compute_bits(val_counts, distincts,
                                      FF_ARRAY_ELEMS(distincts), 3);
 

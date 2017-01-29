@@ -303,8 +303,8 @@ int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
     if (s->mjpeg_ctx->error)
         return s->mjpeg_ctx->error;
 
-    // TODO(yingted): update bits
-    s->i_tex_bits += get_bits_diff(s);
+    // Don't know, but let's guess 16 bits per code
+    s->i_tex_bits = 16 * s->mjpeg_ctx->huff_ncode;
     return 0;
 }
 

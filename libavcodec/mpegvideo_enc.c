@@ -643,9 +643,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
     }
 
     if ((s->mpv_flags & FF_MPV_FLAG_QP_RD) &&
-            (s->huffman == HUFFMAN_TABLE_OPTIMAL)) {
+            (s->codec_id == AV_CODEC_ID_AMV ||
+             s->codec_id == AV_CODEC_ID_MJPEG)) {
+        // Used to produce garbage with MJPEG.
         av_log(avctx, AV_LOG_ERROR,
-               "QP RD is not compatible with MJPEG optimal huffman tables\n");
+               "QP RD is no longer compatible with MJPEG or AMV\n");
         return -1;
     }
 
@@ -2682,7 +2684,6 @@ static inline void encode_mb_hq(MpegEncContext *s, MpegEncContext *backup, MpegE
                            PutBitContext pb[2], PutBitContext pb2[2], PutBitContext tex_pb[2],
                            int *dmin, int *next_block, int motion_x, int motion_y)
 {
-	// TODO(yingted): copy huffman context too
     int score;
     uint8_t *dest_backup[3];
 

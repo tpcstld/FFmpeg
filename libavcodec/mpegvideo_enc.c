@@ -642,6 +642,13 @@ FF_ENABLE_DEPRECATION_WARNINGS
         return -1;
     }
 
+    if ((s->mpv_flags & FF_MPV_FLAG_QP_RD) &&
+            (s->huffman == HUFFMAN_TABLE_OPTIMAL)) {
+        av_log(avctx, AV_LOG_ERROR,
+               "QP RD is not compatible with MJPEG optimal huffman tables\n");
+        return -1;
+    }
+
 #if FF_API_PRIVATE_OPT
 FF_DISABLE_DEPRECATION_WARNINGS
     if (avctx->scenechange_threshold)

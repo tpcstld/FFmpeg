@@ -39,6 +39,9 @@
 #include "mjpeg.h"
 #include "mjpegenc.h"
 
+// Don't know, but let's guess 16 bits per code
+#define MJPEG_HUFFMAN_EST_BITS_PER_CODE 16
+
 av_cold int ff_mjpeg_encode_init(MpegEncContext *s)
 {
     MJpegContext *m;
@@ -269,6 +272,16 @@ static void realloc_huffman(MpegEncContext *s, int blocks_per_mb)
 int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
 {
     int i, is_chroma_420;
+
+    // Number of bits used depends on future data.
+    // So, nothing that relies on encoding many times and taking the
+    // one with the fewest bits will work properly here.
+    if (s->i_tex_bits != MJPEG_HUFFMAN_EST_BITS_PER_CODE *
+        s->mjpeg_ctx->huff_ncode) {
+        av_log(NULL, AV_LOG_ERROR, "Unsupported encoding method\n");
+        return AVERROR(EINVAL);
+    }
+
     if (s->chroma_format == CHROMA_444) {
         realloc_huffman(s, 12);
         encode_block(s, block[0], 0);
@@ -303,8 +316,7 @@ int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
     if (s->mjpeg_ctx->error)
         return s->mjpeg_ctx->error;
 
-    // Don't know, but let's guess 16 bits per code
-    s->i_tex_bits = 16 * s->mjpeg_ctx->huff_ncode;
+    s->i_tex_bits = MJPEG_HUFFMAN_EST_BITS_PER_CODE * s->mjpeg_ctx->huff_ncode;
     return 0;
 }
 

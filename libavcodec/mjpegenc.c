@@ -226,11 +226,6 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
             run++;
         } else {
             while (run >= 16) {
-#if 0
-                m->huff_buffer[m->huff_ncode].table_id = table_id;
-                m->huff_buffer[m->huff_ncode].code = 0xf0;
-                m->huff_buffer[m->huff_ncode++].mant = 0;
-#endif
                 ff_mjpeg_encode_code(c++, table_id, 0xf0);
                 run -= 16;
             }

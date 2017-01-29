@@ -154,7 +154,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
 static inline void ff_mjpeg_encode_code(MJpegHuffmanCode **c, uint8_t table_id, int code)
 {
     (*c)->table_id = table_id;
-    (*c++)->code = code;
+    ((*c)++)->code = code;
 }
 
 /**

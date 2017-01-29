@@ -198,25 +198,28 @@ static void ff_mjpeg_encode_coef(MJpegContext *s, uint8_t table_id, int val, int
 
 /**
  * Add the block's data into the JPEG buffer.
+ * On error (or if s->mjpeg_ctx->error is set), set s->mjpeg_ctx->error.
  *
  * @param s The MJpegEncContext that contains the JPEG buffer.
  * @param block The block.
  * @param n The block's index or number.
- * @return int Return code, 0 if succeeded.
  */
-static int encode_block(MpegEncContext *s, int16_t *block, int n)
+static void encode_block(MpegEncContext *s, int16_t *block, int n)
 {
     int i, j, table_id;
     int component, dc, last_index, val, run;
     MJpegContext *m = s->mjpeg_ctx;
     MJpegBuffer *buffer_block = m->buffer_last;
 
+    if (m->error) return;
+
     // Any block has at most 64 coefficients.
     if (buffer_block == NULL || buffer_block->ncode + 64
         > FF_ARRAY_ELEMS(buffer_block->codes)) {
         buffer_block = av_malloc(sizeof(MJpegBuffer));
         if (!buffer_block) {
-            return AVERROR(ENOMEM);
+            m->error = AVERROR(ENOMEM);
+            return;
         }
 
         buffer_block->next = NULL;
@@ -267,51 +270,43 @@ static int encode_block(MpegEncContext *s, int16_t *block, int n)
     /* output EOB only if not already 64 values */
     if (last_index < 63 || run != 0)
         ff_mjpeg_encode_code(m, table_id, 0);
-
-    return 0;
 }
 
 int ff_mjpeg_encode_mb(MpegEncContext *s, int16_t block[12][64])
 {
     int i;
-    int ret = 0;
-    if (s->mjpeg_ctx->error)
-        return s->mjpeg_ctx->error;
     if (s->chroma_format == CHROMA_444) {
-        if (!ret) ret = encode_block(s, block[0], 0);
-        if (!ret) ret = encode_block(s, block[2], 2);
-        if (!ret) ret = encode_block(s, block[4], 4);
-        if (!ret) ret = encode_block(s, block[8], 8);
-        if (!ret) ret = encode_block(s, block[5], 5);
-        if (!ret) ret = encode_block(s, block[9], 9);
+        encode_block(s, block[0], 0);
+        encode_block(s, block[2], 2);
+        encode_block(s, block[4], 4);
+        encode_block(s, block[8], 8);
+        encode_block(s, block[5], 5);
+        encode_block(s, block[9], 9);
 
         if (16*s->mb_x+8 < s->width) {
-            if (!ret) ret = encode_block(s, block[1], 1);
-            if (!ret) ret = encode_block(s, block[3], 3);
-            if (!ret) ret = encode_block(s, block[6], 6);
-            if (!ret) ret = encode_block(s, block[10], 10);
-            if (!ret) ret = encode_block(s, block[7], 7);
-            if (!ret) ret = encode_block(s, block[11], 11);
+            encode_block(s, block[1], 1);
+            encode_block(s, block[3], 3);
+            encode_block(s, block[6], 6);
+            encode_block(s, block[10], 10);
+            encode_block(s, block[7], 7);
+            encode_block(s, block[11], 11);
         }
     } else {
         for(i=0;i<5;i++) {
-            if (!ret) ret = encode_block(s, block[i], i);
+            encode_block(s, block[i], i);
         }
         if (s->chroma_format == CHROMA_420) {
-            if (!ret) ret = encode_block(s, block[5], 5);
+            encode_block(s, block[5], 5);
         } else {
-            if (!ret) ret = encode_block(s, block[6], 6);
-            if (!ret) ret = encode_block(s, block[5], 5);
-            if (!ret) ret = encode_block(s, block[7], 7);
+            encode_block(s, block[6], 6);
+            encode_block(s, block[5], 5);
+            encode_block(s, block[7], 7);
         }
     }
-    if (ret) {
-        s->mjpeg_ctx->error = ret;
-        return ret;
+    if (!s->mjpeg_ctx->error) {
+        s->i_tex_bits += get_bits_diff(s);
     }
-
-    s->i_tex_bits += get_bits_diff(s);
-    return 0;
+    return s->mjpeg_ctx->error;
 }
 
 // maximum over s->mjpeg_vsample[i]

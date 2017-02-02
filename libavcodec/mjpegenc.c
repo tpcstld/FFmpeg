@@ -121,6 +121,7 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
                               m->huff_code_ac_luminance,
                               m->huff_code_ac_chrominance};
     size_t total_bits = 0;
+    size_t bytes_needed;
 
     // Estimate the total size first
     for (i = 0; i < m->huff_ncode; i++) {
@@ -131,7 +132,8 @@ void ff_mjpeg_encode_picture_frame(MpegEncContext *s)
         total_bits += huff_size[table_id][code] + nbits;
     }
 
-    ff_mpv_reallocate_putbitbuffer(s, MAX_MB_BYTES, (total_bits + 7) / 8);
+    bytes_needed = (total_bits + 7) / 8;
+    ff_mpv_reallocate_putbitbuffer(s, bytes_needed, bytes_needed);
 
     for (i = 0; i < m->huff_ncode; i++) {
         table_id = m->huff_buffer[i].table_id;
